@@ -1,0 +1,139 @@
+{
+    "@context": ["http://www.w3.org/ns/csvw", {"@language": "en"}],
+    "@id": "https://example.org/schema/sampling_info/",
+    "dc:title": "Sentinel cage sampling information schema",
+    "dcat:keyword": ["sea lice", "sampling data"],
+    "dc:publisher": {
+	"schema:name": "Scottish Government Marine Directorate",
+	"schema:url": {"@id": "https://marine.data.gov.scot/"}
+    },
+    "dc:license": {"@id": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/"},
+    "dc:modified": {"@value": "2024-01-12", "@type": "xsd:date"},
+    "tableSchema": {
+	"columns": [{
+	    "name": "Survey.series",
+	    "titles": ["Survey Series"],
+	    "dc:description": "An identifying name for the survey series",
+	    "datatype": "string",
+	    "required": true
+	}, {
+	    "name": "Deployment.date",
+	    "titles": ["Deployment Date"],
+	    "dc:description": "Date cage was stocked with fish",
+	    "datatype": {"base": "date", "format": "dd/MM/yyyy"}
+	}, {
+	    "name": "Recovery.date",
+	    "titles": ["Recovery Date"],
+	    "dc:description": "Date samples were taken from cage",
+	    "datatype": {"base": "date", "format": "dd/MM/yyyy"}
+	}, {
+	    "name": "Sampling.Note",
+	    "titles": ["Sampling Note"],
+	    "dc:description": "notes on issues with sampling",
+	    "datatype": "string"
+	}, {
+	    "name": "Sampled.Fish.Number",
+	    "titles": ["Sampled fish number"],
+	    "dc:description": "Numerical identifier within a cage of sampled fish",
+	    "datatype": "integer"
+	}, {
+	    "name": "Cage.Number",
+	    "titles": ["Cage number"],
+	    "dc:description": "A unique identifier for each cage which links back to station information. Not necessarily a number.",
+	    "datatype": "string",
+	    "required": true
+	}, {
+	    "name": "Fish.Length.mm",
+	    "titles": ["Fish length (mm)"],
+	    "dc:description": "Length of fish expressed in millimeters",
+	    "datatype": "integer"
+	}, {
+	    "name": "Fish.Weight.g",
+	    "titles": ["Fish weight (g)"],
+	    "dc:description": "Weight of fish expressed in grams",
+	    "datatype": "float"
+	}, {
+	    "name": "Fish.Species",
+	    "titles": ["Fish Species"],
+	    "dc:description": "Common name of species sampled in this case Salmon refers to Salmo salar only.",
+	    "datatype": "string"
+	}, {
+	    "name": "HEAD_OPER",
+	    "titles": ["Head + Oper"],
+	    "dc:description": "Count of lice on the head of the fish",
+	    "datatype": "integer"
+	}, {
+	    "name": "MOUTH_GILLS",
+	    "titles": ["Mouth / gills"],
+	    "dc:description": "Count of lice on the mouth or gills of the fish",
+	    "datatype": "integer"
+	}, {
+	    "name": "ANT.DORS",
+	    "titles": ["Ant. Dors."],
+	    "dc:description": "Count of lice on the anterior dorsum",
+	    "datatype": "integer"
+	}, {
+	    "name": "POST.DORS",
+	    "titles": ["Post. Dors."],
+	    "dc:description": "Count of lice on the posterior dorsum",
+	    "datatype": "integer"
+	}, {
+	    "name": "ANT.VENT",
+	    "titles": ["Ant. Vent."],
+	    "dc:description": "Count of lice on the anterior ventrum",
+	    "datatype": "integer"
+	}, {
+	    "name": "POST.VENT",
+	    "titles": ["Post. Vent."],
+	    "dc:description": "Count of lice on the posterior ventrum",
+	    "datatype": "integer"
+	}, {
+	    "name": "DORSAL",
+	    "titles": ["Dorsal"],
+	    "dc:description": "Count of lice on the dorsum - XX is this the sum of Ant+Post?",
+	    "datatype": "integer"
+	}, {
+	    "name": "PECTORAL",
+	    "titles": ["Pectoral"],
+	    "dc:description": "Count of lice on the pectorum -- XX is this the sum of Ant+Post?",
+	    "datatype": "integer"
+	}, {
+	    "name": "PELVIC",
+	    "titles": ["Pelvic"],
+	    "dc:description": "Count of lice on the pelvis",
+	    "datatype": "integer"
+	}, {
+	    "name": "ANAL",
+	    "titles": ["Anus"],
+	    "dc:description": "Count of lice on the anus",
+	    "datatype": "integer"
+	}, {
+	    "name": "ADIPOSE",
+	    "title": ["Adipose"],
+	    "dc:description": "Count of lice on adipose tissue",
+	    "datatype": "integer"
+	}, {
+	    "name": "CAUDAL",
+	    "title": ["Caudal"],
+	    "dc:description": "Count of lice on caudal tissue",
+	    "datatype": "integer"
+	}, {
+	    "name": "BAG",
+	    "title": ["Bag"],
+	    "dc:description": "Bag - XXX what does this mean",
+	    "datatype": "integer"
+	}, {
+	    "name": "BIN",
+	    "title": ["Bin"],
+	    "dc:description": "Bin - XXX what does this mean",
+	    "datatype": "integer"
+	}, {
+	    "name": "TOTAL",
+	    "title": ["Total"],
+	    "dc:description": "Total number of lice reported on the fish",
+	    "datatype": "integer"
+	}],
+	"primaryKey": "entry",
+	"aboutUrl": "#entry-{entry}"
+    }
+}
