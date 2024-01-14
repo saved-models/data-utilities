@@ -1,0 +1,2 @@
+include examples/sentinel_cages/*.csv
+include examples/sentinel_cages/sampling_info.json
