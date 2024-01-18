@@ -1,0 +1,12 @@
+#!/bin/sh
+
+##
+## Utility script to sync fossil to github
+##
+set -e
+
+fs="$1"
+d="$2"
+gh="git@github.com:wwaites/saved_fisdat"
+
+fossil git export -R "$fs" --autopush "$gh" "$d"
