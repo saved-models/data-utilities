@@ -5,6 +5,7 @@ from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, Request, urlopen
 from urllib.response import addinfourl
 
+
 def _urlopen(request: Request) -> addinfourl:
     """
     This is a shim for `urlopen` that handles HTTP redirects with status code
