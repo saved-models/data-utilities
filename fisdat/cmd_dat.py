@@ -60,8 +60,9 @@ def cli():
   args = parser.parse_args()
 
   if args.unsecure:
-    import ssl
-    ssl.SSL_Context.verify_mode = ssl.CERT_NONE
+    from rdflib import _networking
+    from fisdat import kludge
+    _networking._urlopen = kludge._urlopen
 
   def error(s):
     """
