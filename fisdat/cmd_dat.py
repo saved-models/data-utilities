@@ -52,11 +52,16 @@ def cli():
   """
   parser = argparse.ArgumentParser("fisdat")
   parser.add_argument("-s", "--strict", action="store_true", help="Strict validation")
+  parser.add_argument("-u", "--unsecure", action="store_true", help="Disable SSL validation")
   parser.add_argument("schema", help="Schema file/URI")
   parser.add_argument("csvfile", help="CSV data file")
   parser.add_argument("manifest", help="Manifest file")
 
   args = parser.parse_args()
+
+  if args.unsecure:
+    import ssl
+    ssl.SSL_Context.verify_mode = ssl.CERT_NONE
 
   def error(s):
     """
