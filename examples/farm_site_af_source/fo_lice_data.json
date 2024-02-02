@@ -1,0 +1,37 @@
+{
+    "@context": ["http://www.w3.org/ns/csvw", {"@language": "en"}],
+    "dc:title": "Lice count and number of fish information schema",
+    "dcat:keyword": ["sea lice", "public data"],
+    "tableSchema": {
+        "columns": [
+            {
+                "name": "Count_date",
+                "titles": ["Count date"],
+                "dc:description": "Date of lice count.",
+                "datatype": {"base": "date", "format": "yyyy-MM-dd"},
+                "required": true
+            },
+            {
+                "name": "AF",
+                "titles": ["AF"],
+                "dc:description": "Average number of Salmon lice Adult female per fish",
+                "datatype": "float",
+                "required": true
+            },
+            {
+                "name": "Site_id",
+                "titles": ["Site id"],
+                "dc:description": "Farm site ID",
+                "datatype": "string",
+                "required": true
+            },
+            {
+                "name": "count_fish",
+                "titles": ["count fish"],
+                "dc:description": "Interpolateted number of fish in the farm, based on monthly numbers.",
+                "datatype": "float",
+                "required": true
+            }
+        ]
+    }
+}

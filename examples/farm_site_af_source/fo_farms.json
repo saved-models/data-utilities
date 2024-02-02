@@ -1,0 +1,36 @@
+{
+    "@context": ["http://www.w3.org/ns/csvw", {"@language": "en"}],
+    "dc:title": "Farm site information schema",
+    "dcat:keyword": ["sea lice"],
+    "tableSchema": {
+        "columns": [
+            {
+                "name": "Site_id",
+                "titles": ["Site id"],
+                "dc:description": "Farm site ID",
+                "datatype": "string",
+                "required": true
+            },
+            {
+                "name": "lat",
+                "titles": ["latitude"],
+                "dc:description": "latitude of the farm",
+                "datatype": "float",
+                "required": true
+            },
+            {
+                "name": "lon",
+                "titles": ["longitude"],
+                "dc:description": "longitude of the farm",
+                "datatype": "float",
+                "required": true
+            },
+            {
+                "name": "Site_name",
+                "titles": ["Site name"],
+                "dc:description": "local name of farm site",
+                "datatype": "string"
+            }
+        ]
+    }
+}
