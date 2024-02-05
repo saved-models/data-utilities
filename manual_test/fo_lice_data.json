@@ -1,0 +1,23 @@
+{
+    "@context": ["http://www.w3.org/ns/csvw", {"@language": "en"}],
+    "dc:title": "test",
+    "dcat:keyword": ["test"],
+    "tableSchema": {
+        "columns": [
+            {
+                "name": "Count_date",
+                "titles": ["Count date"],
+                "dc:description": "Date of lice count.",
+                "datatype": {"base": "date", "format": "dd/MM/yyyy"},
+                "required": true
+            },
+            {
+                "name": "AF",
+                "titles": ["AF"],
+                "dc:description": "Average number of Salmon lice Adult female per fish",
+                "datatype": "float",
+                "required": false
+            }
+        ]
+    }
+}
