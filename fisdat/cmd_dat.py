@@ -91,6 +91,9 @@ def cli():
     # Get the columns out of it
     cols = list(columns(schema))
 
+    # If there is an error in the header, it does not make sense to validate the data.
+    early_header_exit = False
+
     # Read the CSV file
     seen_header = False
     with open(args.csvfile) as fp:
@@ -100,15 +103,19 @@ def cli():
                 lhead = len(row)
                 lschema = len(cols)
                 if lhead != lschema:
+                    early_header_exit = True
                     error(
                         f"CSV header and schema have different numbers of columns: {lhead} vs {lschema}"
                     )
                 for h, c in zip(row, cols):
                     name, _ = c
                     if str(name) != h:
+                        early_header_exit = True
                         error(
                             f"Mismatch of column name: {name} in schema {h} in data file"
                         )
+                if early_header_exit:
+                    exit()
                 seen_header = True
                 continue
             else:
