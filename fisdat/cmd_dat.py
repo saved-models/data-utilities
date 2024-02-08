@@ -1,23 +1,14 @@
 from rdflib import Graph, Namespace, Literal
 from rdflib.collection import Collection
 from rdflib.term import XSDToPython
+from fisdat.utils import fst
+from fisdat.ns import CSVW
+from hashlib import sha384
 from csvwlib.utils.TypeConverter import TypeConverter
 import csv
 import argparse
 from os.path import isfile
 import json
-
-CSVW = Namespace("http://www.w3.org/ns/csvw#")
-
-
-def fst(g):
-    """
-    Utility function. RDFLib gives generators all over the place and
-    usually we just want a single value.
-    """
-    for e in g:
-        return e
-    raise Exception("Generator is empty")
 
 
 def complex_datatype(schema, dt):
@@ -127,6 +118,10 @@ def cli():
                     except Exception as e:
                         error(f"Row {i} value {r} in column {col} does not validate")
 
+    with open(args.csvfile, "rb") as fp:
+        data = fp.read()
+    hash = sha384(data)
+
     ## Add the CSV file and its schema to the manifest
     manifest = {"@context": str(CSVW)[:-1], "tables": []}
 
@@ -138,7 +133,7 @@ def cli():
     # Keep any other tables already present
     manifest["tables"] = [t for t in manifest["tables"] if t.get("url") != args.csvfile]
     # Add this table and its schema to the manifest
-    manifest["tables"].append({"url": args.csvfile, "tableSchema": args.schema})
+    manifest["tables"].append({"url": args.csvfile, "tableSchema": args.schema, "fileHash": hash.hexdigest()})
 
     # Save the new manifest
     with open(args.manifest, "w+") as fp:

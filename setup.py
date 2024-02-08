@@ -30,10 +30,12 @@ setup(
     install_requires=[
         "rdflib",
         "csvwlib",
+        "google-cloud-storage",
     ],
     entry_points={
         "console_scripts": [
             "fisdat = fisdat.cmd_dat:cli",
+            "fisup = fisdat.cmd_up:cli",
         ],
     },
 )
