@@ -1,7 +1,7 @@
 from rdflib import Graph, Namespace, Literal
 from rdflib.collection import Collection
 from rdflib.term import XSDToPython
-from fisdat.utils import fst
+from fisdat.utils import fst, error
 from fisdat.ns import CSVW
 from hashlib import sha384
 from csvwlib.utils.TypeConverter import TypeConverter
@@ -43,6 +43,51 @@ def columns(schema):
             dtype = str
         yield name, dtype
 
+def validate(schema, csvfile):
+    """
+    Validate a CSV file according to the schema.
+    """
+    # Get the columns out of the schema
+    cols = list(columns(schema))
+
+    # is the file valid?
+    valid = True
+    
+    # Read the CSV file
+    seen_header = False
+    with open(csvfile) as fp:
+        for i, row in enumerate(csv.reader(fp)):
+            # Check that the header is present and has the right columns
+            if not seen_header:
+                lhead = len(row)
+                lschema = len(cols)
+                if lhead != lschema:
+                    error(
+                        f"CSV header and schema have different numbers of columns: {lhead} vs {lschema}"
+                    )
+                    valid = False
+                for h, c in zip(row, cols):
+                    name, _ = c
+                    if str(name) != h:
+                        error(
+                            f"Mismatch of column name: {name} in schema {h} in data file"
+                        )
+                        valid = False
+                if not valid:
+                    break
+                seen_header = True
+                continue
+            else:
+                # For each row, check that each column has the right kind of data
+                for r, c in zip(row, cols):
+                    col, validator = c
+                    try:
+                        validator(r)
+                    except Exception as e:
+                        error(f"Row {i} value {r} in column {col} does not validate")
+                        valid = False
+
+    return valid
 
 def cli():
     """
@@ -53,6 +98,7 @@ def cli():
     parser.add_argument(
         "-u", "--unsecure", action="store_true", help="Disable SSL validation"
     )
+    parser.add_argument("-n", "--novalidate", action="store_true", help="Disable validation")
     parser.add_argument("schema", help="Schema file/URI")
     parser.add_argument("csvfile", help="CSV data file")
     parser.add_argument("manifest", help="Manifest file")
@@ -65,58 +111,14 @@ def cli():
 
         _networking._urlopen = kludge._urlopen
 
-    def error(s):
-        """
-        Raise an exception if we are in strict mode, otherwise just print
-        things like validation errors.
-        """
-        if args.strict:
-            raise Exception(s)
-        else:
-            print(s)
-
+    error.strict(args.strict)
+    
     # Load the schema
     schema = Graph().parse(location=args.schema, format="json-ld")
     # print(schema.serialize(format="n3"))
 
-    # Get the columns out of it
-    cols = list(columns(schema))
-
-    # If there is an error in the header, it does not make sense to validate the data.
-    early_header_exit = False
-
-    # Read the CSV file
-    seen_header = False
-    with open(args.csvfile) as fp:
-        for i, row in enumerate(csv.reader(fp)):
-            # Check that the header is present and has the right columns
-            if not seen_header:
-                lhead = len(row)
-                lschema = len(cols)
-                if lhead != lschema:
-                    early_header_exit = True
-                    error(
-                        f"CSV header and schema have different numbers of columns: {lhead} vs {lschema}"
-                    )
-                for h, c in zip(row, cols):
-                    name, _ = c
-                    if str(name) != h:
-                        early_header_exit = True
-                        error(
-                            f"Mismatch of column name: {name} in schema {h} in data file"
-                        )
-                if early_header_exit:
-                    exit()
-                seen_header = True
-                continue
-            else:
-                # For each row, check that each column has the right kind of data
-                for r, c in zip(row, cols):
-                    col, validator = c
-                    try:
-                        validator(r)
-                    except Exception as e:
-                        error(f"Row {i} value {r} in column {col} does not validate")
+    if not args.novalidate:
+        validate(schema, args.csvfile)
 
     with open(args.csvfile, "rb") as fp:
         data = fp.read()
