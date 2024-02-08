@@ -31,8 +31,40 @@ that do not match the datatype specified in the schema (adding the
 result in a new or updated `manifest.json` file which serves to
 indicate which data belongs to which schema.
 
+If you do /not/ wish to validate the data file, perhaps because
+it is not a CSV file, you can give the program the `-n` argument.
+
+Do this for each file that should be added to the manifest.
+
 ## fisup - uploading data
 
-This does not exist yet but will work from a manifest and will 
-upload the manifest, the data files it refers to, and any schemata
-to central storage.
+Once the manifest is full, uploading the data can be done with the
+program `fisup`. It is used like this,
+
+	fisup manifest.json
+	
+You will need to set an environment variable to where you have
+saved your access credentials. If you do not have access credentials,
+you will need to ask for them.
+
+	export GOOGLE_APPLICATION_CREDENTIALS=fisdat.key
+
+It will do some basic checks on the files and then upload them to
+cloud storage. Use the `-d` command line option to specify a 
+particular directory path if you do not want one to be randomly
+generated. It is a good idea to make a note of the generated 
+path. For example, from the `examples/farm_site_af_source` 
+directory,
+
+	$ fisdat fo_farms.json fo_farms.csv manifest.json                   
+	$ fisdat fo_lice_data.json fo_lice_data.csv manifest.json           
+	$ fisup manifest.json 
+	Checking fo_farms.csv ...
+	Checking fo_lice_data.csv ...
+	Uploading gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562/manifest.json ...
+	Uploading gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562/fo_farms.csv ...
+	Uploading gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562/fo_lice_data.csv ...
+	Successfully uploaded your dataset to gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562
+
+Now the dataset bundle has been uploaded and can be further
+processed.
