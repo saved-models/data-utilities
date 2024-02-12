@@ -44,10 +44,11 @@ program `fisup`. It is used like this,
 	fisup manifest.json
 	
 You will need to set an environment variable to where you have
-saved your access credentials. If you do not have access credentials,
-you will need to ask for them.
+saved your access credentials. It needs to be the full path to
+the file. If you do not have access credentials, you will need
+to ask for them.
 
-	export GOOGLE_APPLICATION_CREDENTIALS=fisdat.key
+	export GOOGLE_APPLICATION_CREDENTIALS=/some/where/fisdat.key
 
 It will do some basic checks on the files and then upload them to
 cloud storage. Use the `-d` command line option to specify a 
