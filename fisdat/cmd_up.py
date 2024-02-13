@@ -1,6 +1,7 @@
 from rdflib import Graph, Namespace, Literal
 from rdflib.collection import Collection
 from google.cloud import storage
+from google.cloud import client as gc
 from fisdat.utils import fst
 from fisdat.ns import CSVW
 from hashlib import sha384
@@ -23,6 +24,11 @@ def upload_files(args, files):
                 bp.write(fp.read())
     return f"gs://{args.bucket}/{path}"
 
+def source():
+    from google.cloud import client
+    c = client.Client()
+    return c._credentials.service_account_email
+
 def cli():
     """
     Command line interface
@@ -36,6 +42,9 @@ def cli():
     )
     parser.add_argument(
         "-d", "--directory", default=None, help="Directory within bucket to upload into"
+    )
+    parser.add_argument(
+        "-s", "--source", default=source(), help="Data source email"
     )
     
     parser.add_argument("manifest", help="Manifest file")
@@ -53,6 +62,9 @@ def cli():
 
     with open(args.manifest) as fp:
         manifest = json.load(fp)
+        manifest["source"] = args.source
+    with open(args.manifest, "w") as fp:
+        json.dump(manifest, fp, indent=4)
 
     mdir = dirname(args.manifest)
     if mdir != "":
