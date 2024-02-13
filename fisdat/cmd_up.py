@@ -11,6 +11,9 @@ from os import chdir
 import uuid
 import json
 
+## data read/write buffer size, 1MB
+BUFSIZ=1048576
+
 def upload_files(args, files):
     client = storage.Client()
     bucket = client.bucket(args.bucket)
@@ -21,7 +24,11 @@ def upload_files(args, files):
         blob = bucket.blob(fpath)
         with open(fname, "r") as fp:
             with blob.open("w") as bp:
-                bp.write(fp.read())
+                while True:
+                    stuff = fp.read(BUFSIZ)
+                    if len(stuff) == 0:
+                        break
+                    bp.write(stuff)
     return f"gs://{args.bucket}/{path}"
 
 def source():
