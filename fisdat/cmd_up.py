@@ -85,8 +85,10 @@ def cli():
             if hash.hexdigest() != table["fileHash"]:
                 raise ValueError(f"{table['url']} has changed, please revalidate with `fisdat'")
 
-    url = upload_files(args, [basename(args.manifest)] + [table["url"] for table in manifest.get("tables", [])])
+    data = [table["url"] for table in manifest.get("tables", [])]
+    schemas = [table["tableSchema"] for table in manifest.get("tables", [])]
+
+    url = upload_files(args, [basename(args.manifest)] + data + schemas)
+
     print(f"Successfully uploaded your dataset to {url}")
     
-        
-
