@@ -22,6 +22,7 @@ def upload_files(args, files):
         fpath = path + "/" + fname
         print(f"Uploading gs://{args.bucket}/{fpath} ...")
         blob = bucket.blob(fpath)
+        # 'b' needed otherwise it tries to use utf-8 encoding
         with open(fname, "rb") as fp:
             with blob.open("wb") as bp:
                 while True:
