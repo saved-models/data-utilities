@@ -22,8 +22,8 @@ def upload_files(args, files):
         fpath = path + "/" + fname
         print(f"Uploading gs://{args.bucket}/{fpath} ...")
         blob = bucket.blob(fpath)
-        with open(fname, "r") as fp:
-            with blob.open("w") as bp:
+        with open(fname, "rb") as fp:
+            with blob.open("wb") as bp:
                 while True:
                     stuff = fp.read(BUFSIZ)
                     if len(stuff) == 0:
