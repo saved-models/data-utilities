@@ -1,5 +1,6 @@
 from rdflib import Graph, Namespace, Literal
 from rdflib.collection import Collection
+from datetime import datetime
 from google.cloud import storage
 from google.cloud import client as gc
 from fisdat.utils import fst
@@ -14,10 +15,12 @@ import json
 ## data read/write buffer size, 1MB
 BUFSIZ=1048576
 
-def upload_files(args, files):
-    client = storage.Client()
-    bucket = client.bucket(args.bucket)
-    path = args.directory if args.directory is not None else str(uuid.uuid1())
+def upload_files(args, files, owner, ts):
+    gen_path = lambda owner, ts, extra : owner + "/" + ts + "/" + extra
+    client   = storage.Client()
+    bucket   = client.bucket(args.bucket)
+    jobuuid  = str(uuid.uuid1())
+    path     = gen_path (owner, ts, args.directory) if args.directory is not None else gen_path (owner, ts, jobuuid)
     for fname in files:
         fpath = path + "/" + fname
         print(f"Uploading gs://{args.bucket}/{fpath} ...")
@@ -86,10 +89,11 @@ def cli():
             if hash.hexdigest() != table["fileHash"]:
                 raise ValueError(f"{table['url']} has changed, please revalidate with `fisdat'")
 
-    data = [table["url"] for table in manifest.get("tables", [])]
-    schemas = [table["tableSchema"] for table in manifest.get("tables", [])]
-
-    url = upload_files(args, [basename(args.manifest)] + data + schemas)
+    data      = [table["url"] for table in manifest.get("tables", [])]
+    schemas   = [table["tableSchema"] for table in manifest.get("tables", [])]
+    timestamp = datetime.today().strftime('%Y%m%d')
+    shortname = manifest["source"].split('@')[0]     
+    url       = upload_files(args, [basename(args.manifest)] + data + schemas, shortname, timestamp)
 
     print(f"Successfully uploaded your dataset to {url}")
     
