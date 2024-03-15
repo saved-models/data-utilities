@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="fisdat",
-    version="0.1",
+    version="0.2",
     description="Data schema checking and uploading",
     author=["William Waites", "Meadhbh Moriarty"],
     author_email="william.waites@strath.ac.uk",
@@ -31,6 +31,8 @@ setup(
         "rdflib",
         "csvwlib",
         "google-cloud-storage",
+        "linkml",
+        "linkml-runtime",
     ],
     entry_points={
         "console_scripts": [
