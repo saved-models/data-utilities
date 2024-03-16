@@ -5,7 +5,7 @@ from rdflib.term import XSDToPython
 from linkml.generators.pythongen import PythonGenerator
 from linkml.utils.datautils import _get_context, _get_format, get_dumper, get_loader
 from linkml.utils.schema_builder import SchemaBuilder
-from linkml.validator import validate, validate_file
+from linkml.validator import validate_file #validate
 from linkml.validator.report import Severity, ValidationResult, ValidationReport
 from linkml_runtime.dumpers import JSONDumper, RDFDumper
 from linkml_runtime.loaders import YAMLLoader, RDFLoader
@@ -22,7 +22,18 @@ import json
 from fisdat.utils import fst, error
 from fisdat.ns import CSVW
 
-def new_validate (target : str, against : str, target_class : str = "Column") -> bool:
+def extension_helper (target_path : PurePath) -> str:
+    '''
+    Get the extension without the leading dot,
+    to feed into `get_loader', `get_dumper' &c.
+    '''
+    target = str (target_path)
+    if (len (target) == 0):
+        return (target)
+    else:
+        return (target_path.suffix [1: len(target_path.suffix)])
+
+def validate_wrapper (target : str, against : str, target_class : str = "Column") -> bool:
     '''
     `validate_file()' either returns an empty list or a collection of
     errors in a report (`linkml.validator.report.ValidationReport').
@@ -34,139 +45,181 @@ def new_validate (target : str, against : str, target_class : str = "Column") ->
     Compared to the hideous Python Traceback, these errors are remarkably
     friendly and informative!
     '''
-    report  = validate_file (target, against, target_class, strict=True)
-    results = report.results
+    prereq_check = isfile (target) and isfile (against)
 
-    if (not results):
-        print ("Validation success")
-        return (True)
+    if (prereq_check):
+        report  = validate_file (target, against, target_class, strict=True)
+        results = report.results
+
+        if (not results):
+            print ("Validation success")
+            return (True)
+        else:
+            single_result = results[0]
+            severity = single_result.severity
+            problem  = single_result.message
+            instance = single_result.instance
+        
+            print ("Validation error:")
+            print ("-> Severity: " + severity)
+            print ("-> Message: " + problem)
+            print ("-> Trace: " + str(instance))
+        
+            return (False)
     else:
-        single_result = results[0]
-        severity = single_result.severity
-        problem  = single_result.message
-        instance = single_result.instance
-        
-        print ("Validation error:")
-        print ("-> Severity: " + severity)
-        print ("-> Message: " + problem)
-        print ("-> Trace: " + str(instance))
-        
-        return (False)
+        print ("Data file " + target + " and schema file " + against + " must exist!")
+        return (prereq_check)
 
-def py_dump_wrapper (spec_py_obj
-                   , schema_view : SchemaView
-                   , output_path : PurePath) -> bool:
-    output_path_abs = str (output_path)
-    output_path_ext = output_path.suffix [1: len(output_path.suffix)]
+def dump_wrapper (py_obj
+                , data_model_view : SchemaView
+                , output_path     : PurePath) -> bool:
+    '''
+    Given a Python object to serialise, and a SchemaView object derived
+    from the data model, serialise RDF.
+    While `get_dumper' is generic and will happily select the right
+    dumper function based on the output path's file extension, the
+    RDF and JSON-LD serialisers unfortunately don't accept the same
+    schemaview context, instead for JSON-LD, one has to invoke
+    `get_contexts' and provide the resulting context to the conexts
+    argument.
+    There was strange behaviour when calling RDFDumper.dumper directly,
+    which is why it's not called directly.
+    '''
+    output_path_abs = str (output_path.name)
+    output_path_ext = extension_helper (output_path)
 
     formatter = _get_format (output_path_abs, output_path_ext)
     dumper    = get_dumper  (formatter)
 
-    dumper.dump (spec_py_obj, output_path_abs, schemaview = schema_view)
+    dumper.dump (py_obj, output_path_abs, schemaview = data_model_view)
     return (True)
 
-def dump_wrapper (spec_path    : PurePath
-                , schema_path  : PurePath
-                , schema_dict  : dict
-                , target_class : str
-                , output_path  : PurePath) -> bool:
-
-    spec_path_abs   = str (spec_path)
-    schema_path_abs = str (schema_path)
-    output_path_abs = str (output_path)
-
-    py_target_class = schema_dict [target_class]
-
-    loader     = YAMLLoader  ()
-    spec_obj   = loader.load (spec_path_abs, py_target_class)
-    schema_obj = SchemaView  (schema_path_abs)
-
-    py_dump_wrapper (spec_obj, schema_obj, output_path)
-        
-    return (True)
-    
-# Step 1: Read an initial job spec, and validate each item in it.
-def serialise_initial_job_spec (spec_path   : str
-                              , schema_path : str = "examples/linkml-scratch/working/src/model/job.yaml"
-                              , job_class   : str = "JobDesc"
-                              , out_ext     : str = "rdf"
-                              , out_file    : str = "manifest.rdf") -> bool:
-    job_spec_test = new_validate (spec_path, schema_path, job_class)
-    if (job_spec_test):
-        py_schema_dict = PythonGenerator (schema_path).compile_module ().__dict__
-        dump_wrapper (spec_path    = PurePath (spec_path)
-                    , schema_path  = PurePath (schema_path)
-                    , schema_dict  = py_schema_dict
-                    , target_class = job_class
-                    , output_path  = PurePath (out_file))
-    return (job_spec_test)
-    
-# As above except build up the Python object using the linkML API *alone*
-# However, previous function was useful for working out how conversion can be done programmatically
-def compose_job_spec (data      : str
-                    , spec      : str
-                    , schema    : str = "examples/linkml-scratch/working/src/model/job.yaml"
-                    , manifest  : str = "manifest.rdf"
-                    , job_title : str = "abacus"
-                    , mode      : str = "initialise") -> bool:
-    
-    schema_path   = PurePath (schema) # schema_base = schema_path.name
-    manifest_path = PurePath (manifest)
-    data_path     = PurePath (data)
-    spec_path     = PurePath (spec)
+def append_job_manifest (data       : str
+                       , schema     : str
+                       , data_model : str
+                       , manifest   : str
+                       , job_title  : str
+                       , mode       : str) -> bool:
+    '''
+    Given a data file, a file schema, and the parent data model, build
+    up a Python object which can be serialised to RDF.
+    The data model is necessary as it provides JSON-LD contexts, which
+    are ncessary when serialising JSON-LD and RDF. It can point to
+    job.yaml or the meta-model which pulls it in at the top-level.
+    '''
+    data_model_path = PurePath (data_model)
+    manifest_path   = PurePath (manifest)
+    manifest_ext    = extension_helper (manifest_path)
+    data_path       = PurePath (data) # Necessary to only include the file name proper
+    schema_path     = PurePath (schema) # ''
 
     # Nice!
-    py_schema_base   = PythonGenerator (schema)
-    py_schema_module = py_schema_base.compile_module ()
-    py_schema_view   = py_schema_base.schemaview
+    py_data_model_base   = PythonGenerator (data_model)
+    py_data_model_module = py_data_model_base.compile_module ()
+    py_data_model_view   = py_data_model_base.schemaview
 
     # We've already got the schema, now add the data
-    staging_table = py_schema_module.TableDesc (url = data, tableSchema = spec)
-        
+    staging_table = py_data_model_module.TableDesc (url = data_path.name, tableSchema = schema_path.name)
+    
     if (mode == "initialise"):
-        manifest_skeleton = py_schema_module.JobDesc (tables = staging_table)
-        print (manifest_skeleton)
-        py_dump_wrapper (spec_py_obj = manifest_skeleton
-                       , schema_view = py_schema_view
-                       , output_path = manifest_path)
-        return (True)
+        manifest_skeleton = py_data_model_module.JobDesc (tables = staging_table)
+        print (show_job_table (manifest_skeleton))
+        result = dump_wrapper (schema_py_obj     = manifest_skeleton
+                             , data_model_view = py_data_model_view
+                             , output_path     = manifest_path)
     else:
-        target_class      = py_schema_module.__dict__["JobDesc"]
-        loader = get_loader ("rdf")
+        target_class      = py_data_model_module.__dict__["JobDesc"]
+        loader            = get_loader (manifest_ext)
         original_manifest = loader.load (source = manifest
                                        , target_class = target_class
-                                       , schemaview = py_schema_view)
+                                       , schemaview = py_data_model_view)
         
-        extant_data = map (lambda k : PurePath (k.url).name, original_manifest.tables)
-
-        if (data_path.name in extant_data):
+        extant_data  = map (lambda k : PurePath (k.url).name, original_manifest.tables)
+        check_extant = data_path.name in extant_data
+        
+        if (check_extant):
             print ("Data-file " + data + " is already in the table, cannot add!")
-            return (False)
+            result = not check_extant
         else:        
             staging_tables    = original_manifest.tables + [staging_table]
-            manifest_skeleton = py_schema_module.JobDesc (tables = staging_tables)
-            print (manifest_skeleton)
-            py_dump_wrapper (spec_py_obj = manifest_skeleton
-                           , schema_view = py_schema_view
-                           , output_path = manifest_path)
-            return (True)
+            manifest_skeleton = py_data_model_module.JobDesc (tables = staging_tables)
+            print (show_job_table (manifest_skeleton))
+            result = dump_wrapper (schema_py_obj = manifest_skeleton
+                                 , data_model_view = py_data_model_view
+                                 , output_path = manifest_path)
+        return (result)
 
+def manifest_wrapper (data       : str
+                   , schema       : str
+                   , data_model : str  = "examples/linkml-scratch/working/src/model/job.yaml"
+                   , manifest   : str  = "manifest.rdf"
+                   , job_title  : str  = "test"
+                   , mode       : str  = "initialise"
+                   , validate   : bool = True) -> bool:
+    '''
+    Simple wrapper for the two modes of `append_job_manifest' based on
+    whether the manifest file exists (optional) and whether the schema
+    and data file exists (obviously mandatory).
+    '''
+    prereq_check = isfile (data) and isfile (schema)
+    if (prereq_check):
+        if (validate):
+            validate_check = validate_wrapper (data, schema)
+        else:
+            validate_check = True
+        if (validate_check):
+            if (isfile (manifest)):
+                result = append_job_manifest (data, schema, data_model, manifest, job_title
+                                            , mode="append")
+            else:
+                result = append_job_manifest (data, schema, data_model, manifest, job_title
+                                            , mode="initialise")
+            return (result)
+        else:
+            '''
+            `validate_wrapper' already returns informative error
+            messages, so just return its boolean signal
+            '''
+            return (validate_check)
+            
+    else:
+        print ("Data file " + data + " and schema file " + schema + " must exist!")
+        return (prereq_check)
+
+def show_job_table (dataclass) -> None:
+    '''
+    Tiny function to pretty-print tables. No need to pull in Pandas just
+    to show a really simple JSON object in a table!
+    '''
+    tables       = dataclass.tables
+    tuples       = [(k.url, k.tableSchema) for k in tables]
+    uri_col_len  = max ([len (p[0]) for p in tuples])
+    sch_col_len = max ([len (p[1]) for p in tuples])
+
+    row_len = 2 + uri_col_len + 3 + sch_col_len + 2
+    border_row = '-' * row_len
+
+    pad_item = lambda k, rl : k + ((rl - len(k)) * ' ')
+    row_body_ls = ["| " + pad_item (k[0], uri_col_len) + " | " + pad_item (k[1], sch_col_len) + " |" for k in tuples]
+    table_body  = [border_row] + row_body_ls + [border_row]
+    return ('\n'.join (table_body))
+    
 def cli() -> None:
     parser = argparse.ArgumentParser ("fisdat")
-    parser.add_argument ("schema", help = "Schema (YAML)")
-    parser.add_argument ("csvfile", help = "CSV data")
-    parser.add_argument ("manifest", help="Manifest file")
-    parser.add_argument ("mode", help = "API test mode", default = "validate")
+    parser.add_argument ("schema"  , help = "Schema file/URI (YAML)")
+    parser.add_argument ("csvfile" , help = "CSV data file")
+    parser.add_argument ("manifest", help = "Manifest file")
+    parser.add_argument ("mode"    , help = "API test mode", default = "scope")
     
     args = parser.parse_args ()
 
-    if (args.mode == "validate"):
-        new_validate (args.schema, "examples/linkml-scratch/working/src/model/job.yaml")
-    elif (args.mode == "dumpgen"):
-        compose_job_spec (data = args.csvfile, spec = args.schema, mode = "initialise")
-    elif (args.mode == "dumpappend"):
-        compose_job_spec (data = args.csvfile, spec = args.schema, mode = "append")
-
+    if (args.mode == "scope"):
+        manifest_wrapper (data = args.csvfile, schema = args.schema, validate=True)
+    elif (args.mode == "nscope"):
+        manifest_wrapper (data = args.csvfile, schema = args.schema, validate=False)
+    else:
+        print ("Unrecognised mode")
+        
 def old_cli():
     """
     Command line interface
