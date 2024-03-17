@@ -1,23 +1,15 @@
-from rdflib import Graph, Namespace, Literal
-from rdflib.collection import Collection
-from rdflib.term import XSDToPython
-
 from linkml.generators.pythongen import PythonGenerator
 from linkml.utils.datautils import _get_context, _get_format, get_dumper, get_loader
 from linkml.utils.schema_builder import SchemaBuilder
 from linkml.validator import validate_file #validate
 from linkml.validator.report import Severity, ValidationResult, ValidationReport
-from linkml_runtime.dumpers import JSONDumper, RDFDumper
-from linkml_runtime.loaders import YAMLLoader, RDFLoader
 from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
-from hashlib import sha384
-from csvwlib.utils.TypeConverter import TypeConverter
-import csv
 import argparse
+from hashlib import sha384
 from os.path import isfile
 from pathlib import Path, PurePath # Necessary to make sure that we don't upload files starting with `..', `.', `/' &c.
-import json
+from typing import Tuple
 
 from fisdat.utils import fst, error
 from fisdat.ns import CSVW
@@ -123,10 +115,10 @@ def append_job_manifest (data       : str
     
     if (mode == "initialise"):
         manifest_skeleton = py_data_model_module.JobDesc (tables = staging_table)
-        print (show_job_table (manifest_skeleton))
-        result = dump_wrapper (schema_py_obj     = manifest_skeleton
+        result = dump_wrapper (py_obj          = manifest_skeleton
                              , data_model_view = py_data_model_view
                              , output_path     = manifest_path)
+        print (show_job_table (manifest_skeleton, manifest, preamble = True))
     else:
         target_class      = py_data_model_module.__dict__["JobDesc"]
         loader            = get_loader (manifest_ext)
@@ -143,19 +135,19 @@ def append_job_manifest (data       : str
         else:        
             staging_tables    = original_manifest.tables + [staging_table]
             manifest_skeleton = py_data_model_module.JobDesc (tables = staging_tables)
-            print (show_job_table (manifest_skeleton))
-            result = dump_wrapper (schema_py_obj = manifest_skeleton
+
+            result = dump_wrapper (py_obj          = manifest_skeleton
                                  , data_model_view = py_data_model_view
-                                 , output_path = manifest_path)
-        return (result)
+                                 , output_path     = manifest_path)
+            print (show_job_table (manifest_skeleton, manifest, preamble = True))
+    return (result)
 
 def manifest_wrapper (data       : str
-                   , schema       : str
-                   , data_model : str  = "examples/linkml-scratch/working/src/model/job.yaml"
-                   , manifest   : str  = "manifest.rdf"
-                   , job_title  : str  = "test"
-                   , mode       : str  = "initialise"
-                   , validate   : bool = True) -> bool:
+                    , schema     : str
+                    , data_model : str
+                    , manifest   : str
+                    , job_title  : str
+                    , validate   : bool) -> bool:
     '''
     Simple wrapper for the two modes of `append_job_manifest' based on
     whether the manifest file exists (optional) and whether the schema
@@ -186,39 +178,58 @@ def manifest_wrapper (data       : str
         print ("Data file " + data + " and schema file " + schema + " must exist!")
         return (prereq_check)
 
-def show_job_table (dataclass) -> None:
+def show_job_table (dataclass
+                  , manifest  : str   = "manifest.rdf"
+                  , preamble  : bool  = False
+                  , col_names : Tuple[str,  ...] = ("saved:uri", "saved:tableSchema")) -> str:
     '''
     Tiny function to pretty-print tables. No need to pull in Pandas just
     to show a really simple JSON object in a table!
     '''
     tables       = dataclass.tables
     tuples       = [(k.url, k.tableSchema) for k in tables]
-    uri_col_len  = max ([len (p[0]) for p in tuples])
-    sch_col_len = max ([len (p[1]) for p in tuples])
+    tuples_extra = tuples + [col_names]
+    uri_col_len  = max ([len (p[0]) for p in tuples_extra])
+    sch_col_len = max ([len (p[1]) for p in tuples_extra])
 
     row_len = 2 + uri_col_len + 3 + sch_col_len + 2
     border_row = '-' * row_len
 
     pad_item = lambda k, rl : k + ((rl - len(k)) * ' ')
-    row_body_ls = ["| " + pad_item (k[0], uri_col_len) + " | " + pad_item (k[1], sch_col_len) + " |" for k in tuples]
-    table_body  = [border_row] + row_body_ls + [border_row]
-    return ('\n'.join (table_body))
+    
+    gen_row = lambda p0, p1, l0, l1 : "| " + pad_item (p0, l0) + " | " + pad_item (p1, l1) + " |"
+    rows_body  = [gen_row (k[0], k[1], uri_col_len, sch_col_len) for k in tuples]
+    table_body = [border_row] + rows_body + [border_row]
+ 
+    if (preamble):
+        row_title  = gen_row (col_names[0], col_names[1], uri_col_len, sch_col_len)
+        table_lead = "Wrote to " + manifest + ":"
+        table_text = '\n'.join ([table_lead, border_row, row_title] + table_body)
+    else:
+        table_text = '\n'.join (table_body)
+    return (table_text)
     
 def cli() -> None:
     parser = argparse.ArgumentParser ("fisdat")
-    parser.add_argument ("schema"  , help = "Schema file/URI (YAML)")
-    parser.add_argument ("csvfile" , help = "CSV data file")
-    parser.add_argument ("manifest", help = "Manifest file")
-    parser.add_argument ("mode"    , help = "API test mode", default = "scope")
+    parser.add_argument ("schema"  , help = "Schema file/URI (YAML)", type = str)
+    parser.add_argument ("csvfile" , help = "CSV data file", type = str)
+    parser.add_argument ("manifest", help = "Manifest file", type = str)
+    parser.add_argument ("-n", "--no-validate", "--dry-run"
+                       , help   = "Disable validation"
+                       , action = "store_true")
+    parser.add_argument ("--data-model"
+                       , help    = "Data model YAML specification"
+                       , default = "examples/linkml-scratch/working/src/model/job.yaml"
+                       , action  = "store_true")
     
     args = parser.parse_args ()
 
-    if (args.mode == "scope"):
-        manifest_wrapper (data = args.csvfile, schema = args.schema, validate=True)
-    elif (args.mode == "nscope"):
-        manifest_wrapper (data = args.csvfile, schema = args.schema, validate=False)
-    else:
-        print ("Unrecognised mode")
+    manifest_wrapper (data       = args.csvfile
+                    , schema     = args.schema
+                    , data_model = args.data_model
+                    , manifest   = args.manifest
+                    , job_title  = "saved_job_default"
+                    , validate   = not args.no_validate)
         
 def old_cli():
     """
