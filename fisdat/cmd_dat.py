@@ -10,19 +10,8 @@ from hashlib import sha384
 from os.path import isfile
 from pathlib import Path, PurePath
 
-from fisdat.utils import fst, error
+from fisdat.utils import fst, error, extension_helper, job_table, take
 from fisdat.ns    import CSVW
-
-def extension_helper (target_path : PurePath) -> str:
-    '''
-    Get the extension without the leading dot,
-    to feed into `get_loader', `get_dumper' &c.
-    '''
-    target = str (target_path)
-    if (len (target) == 0):
-        return (target)
-    else:
-        return (target_path.suffix [1: len(target_path.suffix)])
 
 def validate_wrapper (target : str, against : str, target_class : str = "Column") -> bool:
     '''
@@ -39,7 +28,7 @@ def validate_wrapper (target : str, against : str, target_class : str = "Column"
     prereq_check = isfile (target) and isfile (against)
 
     if (prereq_check):
-        report  = validate_file (target, against, target_class, strict=True)
+        report  = validate_file (target, against, target_class, strict = True)
         results = report.results
 
         if (not results):
@@ -53,8 +42,8 @@ def validate_wrapper (target : str, against : str, target_class : str = "Column"
         
             print ("Validation error:")
             print ("-> Severity: " + severity)
-            print ("-> Message: " + problem)
-            print ("-> Trace: " + str(instance))
+            print ("-> Message: "  + problem)
+            print ("-> Trace: "    + str (instance))
         
             return (False)
     else:
@@ -79,7 +68,13 @@ def dump_wrapper (py_obj
     output_path_abs = str (output_path.name)
     output_path_ext = extension_helper (output_path)
 
-    formatter = _get_format (output_path_abs, output_path_ext)
+    if (output_path_ext == "rdf"):
+        fake_ext = output_path_ext
+    else:
+        print ("Warning: target extension has a ." + output_path_ext + " extension, but will actually be serialised as RDF")
+        fake_ext = "rdf"
+    
+    formatter = _get_format (output_path_abs, fake_ext)
     dumper    = get_dumper  (formatter)
 
     dumper.dump (py_obj, output_path_abs, schemaview = data_model_view)
@@ -118,19 +113,26 @@ def append_job_manifest (data       : str
     staging_table = py_data_model_module.TableDesc (data_uri    = data_path.name
                                                   , data_schema = schema_path.name
                                                   , data_hash   = data_hash)
+
+    if (manifest_ext == "rdf"):
+        fake_ext = manifest_ext
+    else:
+        # Don't print warning here as the message just gets duplicated
+        # when the updated RDF is dumped to the manifest provided.
+        fake_ext = "rdf"
     
     if (mode == "initialise"):
         manifest_skeleton = py_data_model_module.JobDesc (tables = staging_table)
         result = dump_wrapper (py_obj          = manifest_skeleton
                              , data_model_view = py_data_model_view
                              , output_path     = manifest_path)
-        print (show_job_table (manifest_skeleton, manifest, preamble = True))
+        print (job_table (manifest_skeleton, manifest, preamble = True))
     else:
         target_class      = py_data_model_module.__dict__["JobDesc"]
-        loader            = get_loader  (manifest_ext)
-        original_manifest = loader.load (source = manifest
+        loader            = get_loader  (fake_ext)
+        original_manifest = loader.load (source       = manifest
                                        , target_class = target_class
-                                       , schemaview = py_data_model_view)
+                                       , schemaview   = py_data_model_view)
         
         extant_data  = map (lambda k : PurePath (k.data_uri).name, original_manifest.tables)
         check_extant = data_path.name in extant_data
@@ -145,7 +147,7 @@ def append_job_manifest (data       : str
             result = dump_wrapper (py_obj          = manifest_skeleton
                                  , data_model_view = py_data_model_view
                                  , output_path     = manifest_path)
-            print (show_job_table (manifest_skeleton, manifest, preamble = True))
+            print (job_table (manifest_skeleton, manifest, preamble = True))
     return (result)
 
 def manifest_wrapper (data       : str
@@ -160,6 +162,7 @@ def manifest_wrapper (data       : str
     and data file exists (obviously mandatory).
     '''
     prereq_check = isfile (data) and isfile (schema)
+    
     if (prereq_check):
         if (validate):
             validate_check = validate_wrapper (data, schema)
@@ -184,41 +187,9 @@ def manifest_wrapper (data       : str
         print ("Data file " + data + " and schema file " + schema + " must exist!")
         return (prereq_check)
 
-def show_job_table (dataclass
-                  , manifest  : str   = "manifest.rdf"
-                  , preamble  : bool  = False
-                  , col_names : tuple[str,  ...] = ("data URI"
-                                                  , "data schema"
-                                                  , "data hash")) -> str:
-    '''
-    Tiny function to pretty-print tables. No need to pull in Pandas just
-    to show a really simple JSON object in a table!
-    '''
-    tables       = dataclass.tables
-    tuples       = [(k.data_uri, k.data_schema, k.data_hash) for k in tables]
-    tuples_extra = tuples + [col_names] # If we change the column titles, the row lengths adjust accordingly
-    file_col_len = max ([len (p[0]) for p in tuples_extra])
-    spec_col_len = max ([len (p[1]) for p in tuples_extra])
-    hash_col_len = len (col_names [2])
 
-    row_len = 2 + file_col_len + 3 + spec_col_len + 3 + hash_col_len + 2
-    border_row = '-' * row_len
-
-    pad_item = lambda k, rl : k + ((rl - len(k)) * ' ')
     
-    gen_row = lambda p0, p1, p2, l0, l1, l2 : "| " + pad_item (p0, l0) + " | " + pad_item (p1, l1) + " | " + pad_item (p2, l2) + " |"
-    rows_body  = [gen_row (k[0], k[1], k[2][0:hash_col_len], file_col_len, spec_col_len, hash_col_len) for k in tuples]
-    table_body = [border_row] + rows_body + [border_row]
- 
-    if (preamble):
-        row_title  = gen_row (col_names[0], col_names[1], col_names[2], file_col_len, spec_col_len, hash_col_len)
-        table_lead = "Wrote to " + manifest + ":"
-        table_text = '\n'.join ([table_lead, border_row, row_title] + table_body)
-    else:
-        table_text = '\n'.join (table_body)
-    return (table_text)
-    
-def cli() -> None:
+def cli () -> None:
     parser = argparse.ArgumentParser ("fisdat")
     parser.add_argument ("schema"  , help = "Schema file/URI (YAML)", type = str)
     parser.add_argument ("csvfile" , help = "CSV data file", type = str)
