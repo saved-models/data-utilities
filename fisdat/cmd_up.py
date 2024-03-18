@@ -12,8 +12,17 @@ from os import chdir
 import uuid
 import json
 
+## Set this for GCP uploads, and use blob.upload_from_filename directly
+## Default value is 100MB, time-out is 1 minute => requires 13.67 Mb/s
+## before the time-out…?
+## https://github.com/googleapis/python-storage/issues/74
+## I've set this both here and on the blob storage.blob() instance,
+## and set the command to upload_from_filename.
+## Seems to work on my end…
 ## data read/write buffer size, 1MB
-BUFSIZ=1048576
+BUFSIZ                           = 1048576
+storage.blob._DEFAULT_CHUNKSIZE  = BUFSIZ
+storage.blob._MAX_MULTIPART_SIZE = BUFSIZ
 
 def upload_files(args, files, owner, ts):
     gen_path = lambda owner, ts, extra : owner + "/" + ts + "/" + extra
@@ -25,14 +34,8 @@ def upload_files(args, files, owner, ts):
         fpath = path + "/" + fname
         print(f"Uploading gs://{args.bucket}/{fpath} ...")
         blob = bucket.blob(fpath)
-        # 'b' needed otherwise it tries to use utf-8 encoding
-        with open(fname, "rb") as fp:
-            with blob.open("wb") as bp:
-                while True:
-                    stuff = fp.read(BUFSIZ)
-                    if len(stuff) == 0:
-                        break
-                    bp.write(stuff)
+        blob.chunk_size = BUFSIZ
+        blob.upload_from_filename(fname)
     return f"gs://{args.bucket}/{path}"
 
 def source():
