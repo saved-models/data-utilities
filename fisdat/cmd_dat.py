@@ -1,18 +1,17 @@
-from linkml.generators.pythongen import PythonGenerator
-from linkml.utils.datautils import _get_context, _get_format, get_dumper, get_loader
-from linkml.utils.schema_builder import SchemaBuilder
-from linkml.validator import validate_file #validate
-from linkml.validator.report import Severity, ValidationResult, ValidationReport
+from linkml.generators.pythongen     import PythonGenerator
+from linkml.utils.datautils          import _get_context, _get_format, get_dumper, get_loader
+from linkml.utils.schema_builder     import SchemaBuilder
+from linkml.validator                import validate_file
+from linkml.validator.report         import Severity, ValidationResult, ValidationReport
 from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
 import argparse
 from hashlib import sha384
 from os.path import isfile
-from pathlib import Path, PurePath # Necessary to make sure that we don't upload files starting with `..', `.', `/' &c.
-from typing import Tuple
+from pathlib import Path, PurePath
 
 from fisdat.utils import fst, error
-from fisdat.ns import CSVW
+from fisdat.ns    import CSVW
 
 def extension_helper (target_path : PurePath) -> str:
     '''
@@ -105,13 +104,20 @@ def append_job_manifest (data       : str
     data_path       = PurePath (data) # Necessary to only include the file name proper
     schema_path     = PurePath (schema) # ''
 
+    # Note, even before calling this function, the file is known to exist
+    with open (data, "rb") as fp:
+        data_text = fp.read ()
+    data_hash = sha384 (data_text).hexdigest()
+    
     # Nice!
     py_data_model_base   = PythonGenerator (data_model)
     py_data_model_module = py_data_model_base.compile_module ()
     py_data_model_view   = py_data_model_base.schemaview
 
     # We've already got the schema, now add the data
-    staging_table = py_data_model_module.TableDesc (url = data_path.name, tableSchema = schema_path.name)
+    staging_table = py_data_model_module.TableDesc (data_uri    = data_path.name
+                                                  , data_schema = schema_path.name
+                                                  , data_hash   = data_hash)
     
     if (mode == "initialise"):
         manifest_skeleton = py_data_model_module.JobDesc (tables = staging_table)
@@ -121,12 +127,12 @@ def append_job_manifest (data       : str
         print (show_job_table (manifest_skeleton, manifest, preamble = True))
     else:
         target_class      = py_data_model_module.__dict__["JobDesc"]
-        loader            = get_loader (manifest_ext)
+        loader            = get_loader  (manifest_ext)
         original_manifest = loader.load (source = manifest
                                        , target_class = target_class
                                        , schemaview = py_data_model_view)
         
-        extant_data  = map (lambda k : PurePath (k.url).name, original_manifest.tables)
+        extant_data  = map (lambda k : PurePath (k.data_uri).name, original_manifest.tables)
         check_extant = data_path.name in extant_data
         
         if (check_extant):
@@ -159,6 +165,7 @@ def manifest_wrapper (data       : str
             validate_check = validate_wrapper (data, schema)
         else:
             validate_check = True
+            
         if (validate_check):
             if (isfile (manifest)):
                 result = append_job_manifest (data, schema, data_model, manifest, job_title
@@ -173,7 +180,6 @@ def manifest_wrapper (data       : str
             messages, so just return its boolean signal
             '''
             return (validate_check)
-            
     else:
         print ("Data file " + data + " and schema file " + schema + " must exist!")
         return (prereq_check)
@@ -181,28 +187,31 @@ def manifest_wrapper (data       : str
 def show_job_table (dataclass
                   , manifest  : str   = "manifest.rdf"
                   , preamble  : bool  = False
-                  , col_names : Tuple[str,  ...] = ("saved:uri", "saved:tableSchema")) -> str:
+                  , col_names : tuple[str,  ...] = ("data URI"
+                                                  , "data schema"
+                                                  , "data hash")) -> str:
     '''
     Tiny function to pretty-print tables. No need to pull in Pandas just
     to show a really simple JSON object in a table!
     '''
     tables       = dataclass.tables
-    tuples       = [(k.url, k.tableSchema) for k in tables]
-    tuples_extra = tuples + [col_names]
-    uri_col_len  = max ([len (p[0]) for p in tuples_extra])
-    sch_col_len = max ([len (p[1]) for p in tuples_extra])
+    tuples       = [(k.data_uri, k.data_schema, k.data_hash) for k in tables]
+    tuples_extra = tuples + [col_names] # If we change the column titles, the row lengths adjust accordingly
+    file_col_len = max ([len (p[0]) for p in tuples_extra])
+    spec_col_len = max ([len (p[1]) for p in tuples_extra])
+    hash_col_len = len (col_names [2])
 
-    row_len = 2 + uri_col_len + 3 + sch_col_len + 2
+    row_len = 2 + file_col_len + 3 + spec_col_len + 3 + hash_col_len + 2
     border_row = '-' * row_len
 
     pad_item = lambda k, rl : k + ((rl - len(k)) * ' ')
     
-    gen_row = lambda p0, p1, l0, l1 : "| " + pad_item (p0, l0) + " | " + pad_item (p1, l1) + " |"
-    rows_body  = [gen_row (k[0], k[1], uri_col_len, sch_col_len) for k in tuples]
+    gen_row = lambda p0, p1, p2, l0, l1, l2 : "| " + pad_item (p0, l0) + " | " + pad_item (p1, l1) + " | " + pad_item (p2, l2) + " |"
+    rows_body  = [gen_row (k[0], k[1], k[2][0:hash_col_len], file_col_len, spec_col_len, hash_col_len) for k in tuples]
     table_body = [border_row] + rows_body + [border_row]
  
     if (preamble):
-        row_title  = gen_row (col_names[0], col_names[1], uri_col_len, sch_col_len)
+        row_title  = gen_row (col_names[0], col_names[1], col_names[2], file_col_len, spec_col_len, hash_col_len)
         table_lead = "Wrote to " + manifest + ":"
         table_text = '\n'.join ([table_lead, border_row, row_title] + table_body)
     else:
