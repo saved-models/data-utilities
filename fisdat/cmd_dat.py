@@ -41,13 +41,13 @@ def validate_wrapper (target : str, against : str, target_class : str = "Column"
             instance = single_result.instance
         
             print ("Validation error:")
-            print ("-> Severity: " + severity)
-            print ("-> Message: "  + problem)
-            print ("-> Trace: "    + str (instance))
+            print (f"-> Severity: {severity}")
+            print (f"-> Message: {problem}")
+            print (f"-> Trace: {instance}")
         
             return (False)
     else:
-        print ("Data file " + target + " and schema file " + against + " must exist!")
+        print (f"Data file {target} and schema file {against} must exist!")
         return (prereq_check)
 
 def dump_wrapper (py_obj
@@ -68,13 +68,10 @@ def dump_wrapper (py_obj
     output_path_abs = str (output_path.name)
     output_path_ext = extension_helper (output_path)
 
-    if (output_path_ext == "rdf"):
-        fake_ext = output_path_ext
-    else:
-        print ("Warning: target extension has a ." + output_path_ext + " extension, but will actually be serialised as RDF")
-        fake_ext = "rdf"
+    if (output_path_ext != "rdf"):
+        print (f"Warning: target extension has a .{output_path_ext} extension, but will actually be serialised as RDF")
     
-    formatter = _get_format (output_path_abs, fake_ext)
+    formatter = _get_format (output_path_abs, "rdf")
     dumper    = get_dumper  (formatter)
 
     dumper.dump (py_obj, output_path_abs, schemaview = data_model_view)
@@ -113,13 +110,6 @@ def append_job_manifest (data       : str
     staging_table = py_data_model_module.TableDesc (data_uri    = data_path.name
                                                   , data_schema = schema_path.name
                                                   , data_hash   = data_hash)
-
-    if (manifest_ext == "rdf"):
-        fake_ext = manifest_ext
-    else:
-        # Don't print warning here as the message just gets duplicated
-        # when the updated RDF is dumped to the manifest provided.
-        fake_ext = "rdf"
     
     if (mode == "initialise"):
         manifest_skeleton = py_data_model_module.JobDesc (tables = staging_table)
@@ -129,7 +119,7 @@ def append_job_manifest (data       : str
         print (job_table (manifest_skeleton, manifest, preamble = True))
     else:
         target_class      = py_data_model_module.__dict__["JobDesc"]
-        loader            = get_loader  (fake_ext)
+        loader            = get_loader  ("rdf")
         original_manifest = loader.load (source       = manifest
                                        , target_class = target_class
                                        , schemaview   = py_data_model_view)
@@ -184,7 +174,7 @@ def manifest_wrapper (data       : str
             '''
             return (validate_check)
     else:
-        print ("Data file " + data + " and schema file " + schema + " must exist!")
+        print (f"Data file {data} and schema file {schema} must exist!")
         return (prereq_check)
 
 

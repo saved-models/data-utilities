@@ -31,6 +31,7 @@ def take (iter : Iterable, n : int, ini : int = 0) -> Iterable:
 def job_table (dataclass
               , manifest  : str   = "manifest.rdf"
               , preamble  : bool  = False
+              , mode      : str   = 'w'
               , col_names : tuple[str,  ...] = ("data URI"
                                               , "data schema"
                                               , "data hash")) -> str:
@@ -53,13 +54,18 @@ def job_table (dataclass
                                                       , " | ", pad_item (p2, l2)
                                                       , " |"])
     border_row = '-' * row_len
+    row_title  = gen_row (col_names[0], col_names[1], col_names[2], file_len, spec_len, hash_len)
     rows_body  = [gen_row (k[0], k[1], take(k[2],hash_len), file_len, spec_len, hash_len) for k in tuples]
-    table_body = [border_row] + rows_body + [border_row]
+    table_body = [border_row, row_title, border_row] + rows_body + [border_row]
  
     if (preamble):
-        row_title  = gen_row (col_names[0], col_names[1], col_names[2], file_len, spec_len, hash_len)
-        table_lead = "Wrote to " + manifest + ":"
-        table_text = '\n'.join ([table_lead, border_row, row_title] + table_body)
+        if (mode == 'w'):
+            table_lead = f"Wrote to {manifest}:"
+        elif (mode == 'r'):
+            table_lead = f"Read from {manifest}:"
+        else:
+            table_lead = f"{manifest}:"
+        table_text = '\n'.join ([table_lead] + table_body)
     else:
         table_text = '\n'.join (table_body)
     return (table_text)
