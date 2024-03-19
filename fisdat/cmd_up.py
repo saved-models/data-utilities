@@ -9,20 +9,9 @@ from hashlib import sha384
 import argparse
 from os.path import isfile, basename, dirname
 from os import chdir
-import uuid
 import json
-
-## Set this for GCP uploads, and use blob.upload_from_filename directly
-## Default value is 100MB, time-out is 1 minute => requires 13.67 Mb/s
-## before the time-out…?
-## https://github.com/googleapis/python-storage/issues/74
-## I've set this both here and on the blob storage.blob() instance,
-## and set the command to upload_from_filename.
-## Seems to work on my end…
-## data read/write buffer size, 1MB
-BUFSIZ                           = 1048576
-storage.blob._DEFAULT_CHUNKSIZE  = BUFSIZ
-storage.blob._MAX_MULTIPART_SIZE = BUFSIZ
+import time
+import uuid
 
 def upload_files(args, files, owner, ts):
     gen_path = lambda owner, ts, extra : owner + "/" + ts + "/" + extra
@@ -32,10 +21,17 @@ def upload_files(args, files, owner, ts):
     path     = gen_path (owner, ts, args.directory) if args.directory is not None else gen_path (owner, ts, jobuuid)
     for fname in files:
         fpath = path + "/" + fname
-        print(f"Uploading gs://{args.bucket}/{fpath} ...")
+        print (f"Uploading gs://{args.bucket}/{fpath} ...")
+        start = time.time ()
         blob = bucket.blob(fpath)
-        blob.chunk_size = BUFSIZ
-        blob.upload_from_filename(fname)
+        blob.upload_from_filename (fname, timeout=86400)
+        end = time.time ()
+        abs_time = end - start
+        if (abs_time < 1):
+            elapsed = round (abs_time, 2)
+        else:
+            elapsed = round (abs_time)
+        print (f"Uploaded {fname} in {elapsed}s")
     return f"gs://{args.bucket}/{path}"
 
 def source():
@@ -60,7 +56,6 @@ def cli():
     parser.add_argument(
         "-s", "--source", default=source(), help="Data source email"
     )
-    
     parser.add_argument("manifest", help="Manifest file")
 
     args = parser.parse_args()
@@ -73,7 +68,7 @@ def cli():
         from fisdat import kludge
 
         _networking._urlopen = kludge._urlopen
-
+        
     with open(args.manifest) as fp:
         manifest = json.load(fp)
         manifest["source"] = args.source
