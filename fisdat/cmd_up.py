@@ -9,10 +9,11 @@ from hashlib import sha384
 import argparse
 from os.path import isfile, basename, dirname
 from os import chdir
-import uuid
 import json
+import time
+import uuid
 
-## data read/write buffer size, 1MB
+## data read/write buffer size, 1MB
 BUFSIZ=1048576
 
 def upload_files(args, files, owner, ts):
@@ -23,9 +24,10 @@ def upload_files(args, files, owner, ts):
     path     = gen_path (owner, ts, args.directory) if args.directory is not None else gen_path (owner, ts, jobuuid)
     for fname in files:
         fpath = path + "/" + fname
-        print(f"Uploading gs://{args.bucket}/{fpath} ...")
+        print (f"Uploading gs://{args.bucket}/{fpath} ...")
+        start = time.time ()
         blob = bucket.blob(fpath)
-        # 'b' needed otherwise it tries to use utf-8 encoding
+        blob.timeout=86400
         with open(fname, "rb") as fp:
             with blob.open("wb") as bp:
                 while True:
@@ -33,6 +35,13 @@ def upload_files(args, files, owner, ts):
                     if len(stuff) == 0:
                         break
                     bp.write(stuff)
+        end = time.time ()
+        abs_time = end - start
+        if (abs_time < 1):
+            elapsed = round (abs_time, 2)
+        else:
+            elapsed = round (abs_time)
+        print (f"Uploaded {fname} in {elapsed}s")
     return f"gs://{args.bucket}/{path}"
 
 def source():
@@ -57,7 +66,6 @@ def cli():
     parser.add_argument(
         "-s", "--source", default=source(), help="Data source email"
     )
-    
     parser.add_argument("manifest", help="Manifest file")
 
     args = parser.parse_args()
@@ -70,7 +78,7 @@ def cli():
         from fisdat import kludge
 
         _networking._urlopen = kludge._urlopen
-
+        
     with open(args.manifest) as fp:
         manifest = json.load(fp)
         manifest["source"] = args.source
