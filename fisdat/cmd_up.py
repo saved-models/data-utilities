@@ -13,6 +13,9 @@ import json
 import time
 import uuid
 
+## data read/write buffer size, 1MB
+BUFSIZ=1048576
+
 def upload_files(args, files, owner, ts):
     gen_path = lambda owner, ts, extra : owner + "/" + ts + "/" + extra
     client   = storage.Client()
@@ -24,7 +27,14 @@ def upload_files(args, files, owner, ts):
         print (f"Uploading gs://{args.bucket}/{fpath} ...")
         start = time.time ()
         blob = bucket.blob(fpath)
-        blob.upload_from_filename (fname, timeout=86400)
+        blob.timeout=86400
+        with open(fname, "rb") as fp:
+            with blob.open("wb") as bp:
+                while True:
+                    stuff = fp.read(BUFSIZ)
+                    if len(stuff) == 0:
+                        break
+                    bp.write(stuff)
         end = time.time ()
         abs_time = end - start
         if (abs_time < 1):
