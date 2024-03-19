@@ -189,8 +189,7 @@ def cli () -> None:
                        , action = "store_true")
     parser.add_argument ("--data-model"
                        , help    = "Data model YAML specification"
-                       , default = "examples/linkml-scratch/working/src/model/job.yaml"
-                       , action  = "store_true")
+                       , default = "data-model/src/model/meta.yaml")
     
     args = parser.parse_args ()
 
@@ -200,55 +199,3 @@ def cli () -> None:
                     , manifest   = args.manifest
                     , job_title  = "saved_job_default"
                     , validate   = not args.no_validate)
-        
-def old_cli():
-    """
-    Command line interface
-    """
-    parser = argparse.ArgumentParser("fisdat")
-    parser.add_argument("-s", "--strict", action="store_true", help="Strict validation")
-    parser.add_argument(
-        "-u", "--unsecure", action="store_true", help="Disable SSL validation"
-    )
-    parser.add_argument("-n", "--novalidate", action="store_true", help="Disable validation")
-    parser.add_argument("schema", help="Schema file/URI")
-    parser.add_argument("csvfile", help="CSV data file")
-    parser.add_argument("manifest", help="Manifest file")
-
-    args = parser.parse_args()
-
-    #if args.unsecure:
-    #    from rdflib import _networking
-    #    from fisdat import kludge
-    #
-    #    _networking._urlopen = kludge._urlopen
-
-    error.strict(args.strict)
-
-    # Load the schema
-    schema = Graph().parse(location=args.schema, format="json-ld")
-    # print(schema.serialize(format="n3"))
-
-    if not args.novalidate:
-        old_validate(schema, args.csvfile)
-
-    with open(args.csvfile, "rb") as fp:
-        data = fp.read()
-    hash = sha384(data)
-
-    ## Add the CSV file and its schema to the manifest
-    manifest = {"@context": str(CSVW)[:-1], "tables": []}
-
-    # Read the manifest if it exists
-    if isfile(args.manifest):
-        with open(args.manifest) as fp:
-            manifest.update(json.load(fp))
-
-    # Keep any other tables already present
-    manifest["tables"] = [t for t in manifest["tables"] if t.get("url") != args.csvfile]
-    # Add this table and its schema to the manifest
-    manifest["tables"].append({"url": args.csvfile, "tableSchema": args.schema, "fileHash": hash.hexdigest()})
-
-    # Save the new manifest
-    with open(args.manifest, "w+") as fp:
-        json.dump(manifest, fp, indent=4)

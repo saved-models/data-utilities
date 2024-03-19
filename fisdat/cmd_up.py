@@ -61,16 +61,21 @@ def source () -> str:
     c = client.Client()
     return c._credentials.service_account_email
 
-''' (data       : str
-   , schema     : str
-   , data_model : str
-   , manifest   : str
-   , job_title  : str
-   , mode       : str) -> str '''
-
 # Can't type this as we haven't compiled the model to Python data-classes yet
 # Instead use the horrible target_class thing below
 def load_manifest (data_model_path : PurePath, manifest_path : PurePath, verbose : bool = False):
+    '''
+    Note that this duplicates some of the code in cmd_dat.py, since
+    loading the schema is a part of the `append_manifest()' function.
+
+    The data-model provides a JSON-LD context and/or a `SchemaView'
+    object, which is necessary for serialising JSON-LD and RDF/TTL.
+    
+    The problem is that that function needs py_data_model_module,
+    as well. The way to fix this is to make use of the Python
+    data-model as a class, which will enable us to avoid serialising
+    the py_data_model &c.
+    '''
     data_model   = str (data_model_path)
     manifest     = str (manifest_path)
     manifest_ext = extension_helper (manifest_path)
@@ -118,8 +123,8 @@ def cli () -> None:
         from fisdat import kludge
 
         _networking._urlopen = kludge._urlopen
-        
-    data_model_path = PurePath ("examples/linkml-scratch/working/src/model/job.yaml")
+
+    data_model_path = PurePath ("data-model/src/model/meta.yaml")
     manifest_path   = PurePath (args.manifest)
     manifest_obj    = load_manifest (data_model_path, manifest_path, verbose = True)
         

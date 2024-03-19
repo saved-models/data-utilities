@@ -1,0 +1,3 @@
+[submodule "data-model"]
+	path = data-model
+	url = https://github.com/saved-models/data-model
