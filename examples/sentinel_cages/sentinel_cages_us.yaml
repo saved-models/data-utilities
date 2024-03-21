@@ -52,52 +52,52 @@ default_prefix: marinescot
 # TOTAL
 
 slots:
-  Survey.series:
+  Survey_series:
     description: An identifying name for the survey series
     required: true
     range: string
-  Deployment.date:
+  Deployment_date:
     description: Date cage was stocked with fish
     required: true
     range: string # date
     exact_mappings:
       - saved:date
       - saved:deployment_date
-  Recovery.date:
+  Recovery_date:
     description: Date samples were taken from cage
     required: true
     range: string # date
     exact_mappings:
       - saved:date
       - saved:recovery_date
-  Sampling.Note:
+  Sampling_Note:
     description: Notes on issues with sampling
     required: false
     range: string
-  Sampled.Fish.Number:
+  Sampled_Fish_Number:
     description: Numeric identifier within a cage of sampled fish
     required: false
     any_of:
       - range: integer
       - range: string
-  Cage.Number:
+  Cage_Number:
     description: A unique identifier for each cage which links back to station information. Not necessarily a number.
     required: true
     any_of:
       - range: integer
       - range: string
     exact_mappings: saved:cage_id
-  Fish.Length.mm:
+  Fish_Length_mm:
     description: Length of fish expressed in mm
     required: false
     range: float
     exact_mappings: saved:fish_length
-  Fish.Weight.g:
+  Fish_Weight_g:
     description: Weight of fish expressed in grams
     required: false
     range: float
     exact_mappings: saved:fish_mass
-  Fish.Species:
+  Fish_Species:
     description: Common name of species sampled (in this case, Salmon refers to Salmosalar only)
     required: false
     range: string
@@ -117,22 +117,22 @@ slots:
     exact_mappings:
       - saved:lice_count_mouth
       - saved:lice_count_gills # mouth + gills
-  ANT.DORS:
+  ANT_DORS:
     description: Count of lice on the anterior dorsum
     required: false
     range: integer
     exact_mappings: saved:lice_count_dorsum_anterior
-  POST.DORS:
+  POST_DORS:
     description: Count of lice on the posterior dorsum
     required: false
     range: integer
     exact_mappings: saved:lice_count_dorsum_posterior
-  ANT.VENT:
+  ANT_VENT:
     description: Count of lice on the anterior ventrum
     required: false
     range: integer
     exact_mappings: saved:lice_count_ventrum_anterior
-  POST.VENT:
+  POST_VENT:
     description: Count of lice on the posterior ventrum
     required: false
     range: integer
@@ -184,21 +184,21 @@ slots:
 classes:
   Column:
     slots:
-      - Survey.series
-      - Deployment.date
-      - Recovery.date
-      - Sampling.Note
-      - Sampled.Fish.Number
-      - Cage.Number
-      - Fish.Length.mm
-      - Fish.Weight.g
-      - Fish.Species
+      - Survey_series
+      - Deployment_date
+      - Recovery_date
+      - Sampling_Note
+      - Sampled_Fish_Number
+      - Cage_Number
+      - Fish_Length_mm
+      - Fish_Weight_g
+      - Fish_Species
       - HEAD_OPER
       - MOUTH_GILLS
-      - ANT.DORS
-      - POST.DORS
-      - ANT.VENT
-      - POST.VENT
+      - ANT_DORS
+      - POST_DORS
+      - ANT_VENT
+      - POST_VENT
       - DORSAL
       - PECTORAL
       - PELVIC
