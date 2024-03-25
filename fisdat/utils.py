@@ -10,6 +10,18 @@ def fst(g):
         return e
     raise Exception("Generator is empty")
 
+def vprint (message : str, verbosity : int) -> None:
+    '''
+    Verbosity is passed in as 0, 1, or 2, print the message
+    if it is non-zero.
+    '''
+    if (verbosity > 0):
+        print (message)
+
+def vvprint (message : str, verbosity : int) -> None:
+    if (verbosity == 2):
+        print (message)
+        
 def extension_helper (target_path : PurePath) -> str:
     '''
     Get the extension without the leading dot,
