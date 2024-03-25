@@ -1,0 +1,53 @@
+id: http://localhost/saved/fiskaaling/farmsite
+name: farmsite
+title: "Farm site information schema"
+prefixes:
+  linkml:     https://w3id.org/linkml/
+  saved:      http://localhost/saved/
+  fiskaaling: http://localhost/fiskaaling/
+  schema:     http://schema.org/
+imports:
+  - linkml:types
+default_range:  string
+default_prefix: fiskaaling
+
+slots:
+  Site_id:
+    required: true
+    description: Farm site ID
+    range: string
+    exact_mappings: saved:site_id
+  lat:
+    required: true
+    description: Latitude of the farm
+    range: float
+    exact_mappings: saved:latitude
+  lon: 
+    required: true
+    description: Longitude of the farm
+    range: float
+    exact_mappings: saved:longitude
+  Site_name:
+    required: true
+    description: Local name of farm site
+    range: string
+    exact_mappings: saved:site_name
+    
+classes:
+  Column:
+    slots:
+      - Site_id
+      - lat
+      - lon
+      - Site_name
+    implements: saved:column
+      
+  TableSchema:
+    tree_root: true
+    attributes:
+      columns:
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        range: Column
+    implements: saved:TableSchema

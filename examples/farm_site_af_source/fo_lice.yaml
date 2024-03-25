@@ -1,0 +1,52 @@
+id: http://localhost/saved/fiskaaling/lice
+name: farmsite
+title: "Lice count and number of fish information schema"
+prefixes:
+  linkml:     https://w3id.org/linkml/
+  saved:      http://localhost/saved/
+  fiskaaling: http://localhost/fiskaaling/
+  schema:     http://schema.org/
+imports:
+  - linkml:types
+default_range:  string
+default_prefix: fiskaaling
+
+slots:
+  Count_date:
+    description:    Date of lice count
+    required:       true
+    exact_mappings: saved:date
+  AF:
+    description:    Average number of Salmon lice Adult female per fish
+    required:       true
+    range:          float
+    exact_mappings: saved:af_lice
+  Site_id:
+    description:    Farm site ID
+    required:       true
+    range:          string
+    exact_mappings: saved:site_id
+  count_fish:
+    description:    Interpolated number of fish in the farm, based on monthly numbers.
+    required:       true
+    range:          float
+    exact_mappings: saved:count_fish
+  
+classes:
+  Column:
+    slots:
+      - Count_date
+      - AF
+      - Site_id
+      - count_fish
+    implements: saved:Column
+
+  TableSchema:
+    tree_root: true
+    attributes:
+      columns:
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        range: Column
+    implements: saved:TableSchema
