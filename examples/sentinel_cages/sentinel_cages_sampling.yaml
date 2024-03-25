@@ -7,22 +7,8 @@ prefixes:
   marinescot: http://localhost/marinescot/
 imports:
   - linkml:types
+  - ../../data-model/src/model/core
 default_prefix: marinescot
-
-# head -n1 Sentinel_cage_station_info_6.csv | tr ',' '\n
-#
-# Survey.Series
-# Cage.number
-# Site.name
-# Year
-# Cage.Lat.DDM
-# Cage.Long.DDM
-# Depth.m
-# Cage.X.DD
-# Cage.Y.DD
-# NGR
-# Cage.easting
-# Cage.northing
 
 # head -n1 Sentinel_cage_sampling_info_update_01122022.csv | tr ',' '\n'
 #
@@ -52,137 +38,198 @@ default_prefix: marinescot
 # TOTAL
 
 slots:
+
   Survey.series:
-    description: An identifying name for the survey series
-    required: true
-    range: string
+    description:    An identifying name for the survey series
+    range:          string
+    is_a:           column_descriptive
+    exact_mappings: saved:series
+    implements:     linkml:elements
+    required:       true
+
   Deployment.date:
-    description: Date cage was stocked with fish
-    required: true
-    range: string # date
+    description:    Date cage was stocked with fish
+    range:          string
+    is_a:           column_descriptive
     exact_mappings:
       - saved:date
       - saved:deployment_date
+    implements:     linkml:elements
+    required:       true
+    
   Recovery.date:
-    description: Date samples were taken from cage
-    required: true
-    range: string # date
+    description:    Date samples were taken from cage
+    range:          string
+    is_a:           column_descriptive
     exact_mappings:
       - saved:date
       - saved:recovery_date
+    implements:     linkml:elements
+    required:       true
+
   Sampling.Note:
-    description: Notes on issues with sampling
-    required: false
-    range: string
+    description:    Notes on issues with sampling
+    range:          string
+    is_a:           column_descriptive
+    exact_mappings: saved:notes
+    implements:     linkml:elements
+    required:       false
+    
   Sampled.Fish.Number:
-    description: Numeric identifier within a cage of sampled fish
-    required: false
+    description:    Numeric identifier within a cage of sampled fish
     any_of:
-      - range: integer
-      - range: string
+      - range:      integer
+      - range:      string
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+    
   Cage.Number:
-    description: A unique identifier for each cage which links back to station information. Not necessarily a number.
-    required: true
+    description:    A unique identifier for each cage which links back to station information. Not necessarily a number.
     any_of:
-      - range: integer
-      - range: string
+      - range:      integer
+      - range:      string
+    is_a:           column_descriptive
     exact_mappings: saved:cage_id
+    implements:     linkml:elements
+    required:       true
+
   Fish.Length.mm:
-    description: Length of fish expressed in mm
-    required: false
-    range: float
+    description:    Length of fish expressed in mm
+    range:          float
+    is_a:           column_collected
     exact_mappings: saved:fish_length
+    implements:     linkml:elements
+    required:       false
+
   Fish.Weight.g:
-    description: Weight of fish expressed in grams
-    required: false
-    range: float
+    description:    Weight of fish expressed in grams
+    range:          float
+    is_a:           column_collected
     exact_mappings: saved:fish_mass
+    implements:     linkml:elements
+    required:       false
+    
   Fish.Species:
-    description: Common name of species sampled (in this case, Salmon refers to Salmosalar only)
-    required: false
-    range: string
+    description:    Common name of species sampled (in this case, Salmon refers to Salmosalar only)
+    range:          string
+    is_a:           column_collected
     exact_mappings: saved:fish_species_common
     broad_mappings: saved:fish_species_scientific
+    implements:     linkml:elements
+    required:       false
+
   HEAD_OPER:
-    description: Count of lice on the head of the fish
-    required: false
-    range: integer
-    exact_mappings:
-      - saved:lice_count_head
-      - saved:lice_count_oper # head + oper
+    description:    Count of lice on the head of the fish
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   MOUTH_GILLS:
-    description: Count of lice on the mouth or gills of the fish
-    required: false
-    range: integer
-    exact_mappings:
-      - saved:lice_count_mouth
-      - saved:lice_count_gills # mouth + gills
+    description:    Count of lice on the mouth or gills of the fish
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   ANT.DORS:
-    description: Count of lice on the anterior dorsum
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_dorsum_anterior
+    description:    Count of lice on the anterior dorsum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   POST.DORS:
-    description: Count of lice on the posterior dorsum
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_dorsum_posterior
+    description:    Count of lice on the posterior dorsum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   ANT.VENT:
-    description: Count of lice on the anterior ventrum
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_ventrum_anterior
+    description:    Count of lice on the anterior ventrum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   POST.VENT:
-    description: Count of lice on the posterior ventrum
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_ventrum_posterior
+    description:    Count of lice on the posterior ventrum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   DORSAL:
-    description: Count of lice on the dorsum
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_dorsum
+    description:    Count of lice on the dorsum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   PECTORAL:
-    description: Count of lice on the pectorum
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_pectorum
+    description:    Count of lice on the pectorum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   PELVIC:
-    description: Count of lice on the pelvis
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_pelvis
+    description:    Count of lice on the pelvis
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   ANAL:
-    description: Count of lice on the anus
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_anus
+    description:    Count of lice on the anus
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   ADIPOSE:
-    description: Count of lice on the adipose tissue
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_adipose
+    description:    Count of lice on the adipose tissue
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   CAUDAL:
-    description: Count of lice on the caudal tissue
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_caudal
+    description:    Count of lice on the caudal tissue
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
   BAG:
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_bag
+    description:    
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+    
   BIN:
-    required: false
-    range: integer
-    exact_mappings: saved:lice_count_bin
+    description:    
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+    
   TOTAL:
-    description: Total number of lice on the fish
-    required: false
-    range: integer
+    description:    Total number of lice on the fish
+    range:          integer
+    is_a:           column_collected
     exact_mappings: saved:lice_count_total
+    implements:     linkml:elements
+    required:       false
 
 classes:
-  Column:
+  TableSchema:
+    implements:
+      - linkml:TwoDimensionalArray
+      - linkml:ColumnOrderedArray
     slots:
       - Survey.series
       - Deployment.date
@@ -208,14 +255,3 @@ classes:
       - BAG
       - BIN
       - TOTAL
-    implements: saved:column
-
-  TableSchema:
-    tree_root: true
-    attributes:
-      columns:
-        multivalued: true
-        inlined: true
-        inlined_as_list: true
-        range: Column
-    implements: saved:TableSchema

@@ -8,46 +8,47 @@ prefixes:
   schema:     http://schema.org/
 imports:
   - linkml:types
+  - ../../data-model/src/model/core
 default_range:  string
 default_prefix: fiskaaling
 
 slots:
   Site_id:
-    required: true
-    description: Farm site ID
-    range: string
+    required:       true
+    description:    Farm site ID
+    range:          string
     exact_mappings: saved:site_id
+    is_a:           column_descriptive
+    implements:     linkml:elements
   lat:
-    required: true
-    description: Latitude of the farm
-    range: float
+    required:       true
+    description:    Latitude of the farm
+    range:          float
     exact_mappings: saved:latitude
+    is_a:           column_descriptive
+    implements:     linkml:elements
   lon: 
-    required: true
-    description: Longitude of the farm
-    range: float
+    required:       true
+    description:    Longitude of the farm
+    range:          float
     exact_mappings: saved:longitude
+    is_a:           column_descriptive
+    implements:     linkml:elements
   Site_name:
-    required: true
-    description: Local name of farm site
-    range: string
+    required:       true
+    description:    Local name of farm site
+    range:          string
     exact_mappings: saved:site_name
+    is_a:           column_descriptive
+    implements:     linkml:elements
     
 classes:
-  Column:
+  TableSchema:
+    implements:
+      - linkml:TwoDimensionalArray
+      - linkml:ColumnOrderedArray
     slots:
       - Site_id
       - lat
       - lon
       - Site_name
-    implements: saved:column
-      
-  TableSchema:
-    tree_root: true
-    attributes:
-      columns:
-        multivalued: true
-        inlined: true
-        inlined_as_list: true
-        range: Column
-    implements: saved:TableSchema

@@ -1,0 +1,144 @@
+id: http://localhost/saved/marinescot/sentinel_cages/stations
+name: stations
+title: "Sentinel cages station information schema"
+prefixes:
+  linkml: https://w3id.org/linkml/
+  saved: http://localhost/saved/
+  marinescot: http://localhost/marinescot/
+imports:
+  - linkml:types
+  - ../../data-model/src/model/core
+default_prefix: marinescot
+
+# head -n1 Sentinel_cage_station_info_6.csv | tr ',' '\n
+#
+# Survey.Series
+# Cage.number
+# Site.name
+# Year
+# Cage.Lat.DDM
+# Cage.Long.DDM
+# Depth.m
+# Cage.X.DD
+# Cage.Y.DD
+# NGR
+# Cage.easting
+# Cage.northing
+
+slots:
+  Survey.Series:
+    description:    An identifying name for the survey series
+    range:          string
+    is_a:           column_descriptive
+    exact_mappings: saved:series
+    implements:     linkml:elements
+    required:       true
+    
+  Cage.number:
+    description:    A unique identifier for each cage which links back to station information. Not necessarily a number.
+    any_of:
+      - range:      integer
+      - range:      string
+    is_a:           column_descriptive
+    exact_mappings: saved:cage_id
+    implements:     linkml:elements
+    required:       true
+
+  Site.name:
+    description:    Local name of the site in which the cage is situated
+    range:          string
+    is_a:           column_descriptive
+    exact_mappings: saved:site_name
+    implements:     linkml:elements
+    required:       true
+
+  Year:
+    description:    Year
+    range:          year
+    is_a:           column_descriptive
+    exact_mappings: saved:year
+    implements:     linkml:elements
+    required:       true
+    
+  Cage.Lat.DDM:
+    description:    Latitude of the cage
+    range:          LatLon
+    is_a:           column_descriptive
+    exact_mappings: saved:latitude
+    implements:     linkml:elements
+    required:       true
+    
+  Cage.Long.DDM:
+    description:    Longitude of the cage
+    range:          LatLon
+    is_a:           column_descriptive
+    exact_mappings: saved:longitude
+    implements:     linkml:elements
+    required:       true
+    
+  Depth.m:
+    description:    Depth (m)  
+    any_of:
+      - range:      float
+      - range:      string
+    is_a:           column_descriptive
+    exact_mappings: saved:depth
+    implements:     linkml:elements
+    required:       true
+    
+  Cage.X.DD:
+    description:      
+    range:          float
+    is_a:           column_descriptive
+    implements:     linkml:elements
+    required:       true
+    
+  Cage.Y.DD:
+    description:      
+    range:          float
+    is_a:           column_descriptive
+    implements:     linkml:elements      
+    required:       true
+    
+  NGR:
+    description:    National grid reference of the cage
+    range:          string
+    is_a:           column_descriptive
+    exact_mappings: saved:national_grid_reference
+    implements:     linkml:elements
+    required:       true
+    
+  Cage.easting:
+    description:    Easting of the cage
+    range:          float
+    is_a:           column_descriptive
+    exact_mappings: saved:easting
+    implements:     linkml:elements
+    required:       true
+    
+  Cage.northing:
+    description:    Northing of the cage
+    range:          float
+    is_a:           column_descriptive
+    exact_mappings: saved:northing
+    implements:     linkml:elements
+    required:       true
+
+classes:
+  TableSchema:
+    implements:
+      - linkml:TwoDimensionalArray
+      - linkml:ColumnOrderedArray
+    slots:
+      - Survey.Series
+      - Cage.number
+      - Site.name
+      - Year
+      - Cage.Lat.DDM
+      - Cage.Long.DDM
+      - Depth.m
+      - Cage.X.DD
+      - Cage.Y.DD
+      - NGR
+      - Cage.easting
+      - Cage.northing

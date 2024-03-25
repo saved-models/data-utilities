@@ -8,6 +8,7 @@ prefixes:
   schema:     http://schema.org/
 imports:
   - linkml:types
+  - ../../data-model/src/model/core
 default_range:  string
 default_prefix: fiskaaling
 
@@ -16,37 +17,38 @@ slots:
     description:    Date of lice count
     required:       true
     exact_mappings: saved:date
+    is_a:           column_descriptive
+    implements:     linkml:elements
   AF:
     description:    Average number of Salmon lice Adult female per fish
     required:       true
     range:          float
     exact_mappings: saved:af_lice
+    is_a:           column_collected
+    implements:     linkml:elements
   Site_id:
     description:    Farm site ID
     required:       true
     range:          string
     exact_mappings: saved:site_id
+    is_a:           column_descriptive
+    implements:     linkml:elements
   count_fish:
     description:    Interpolated number of fish in the farm, based on monthly numbers.
     required:       true
     range:          float
     exact_mappings: saved:count_fish
+    is_a:           column_modelled
+    implements:     linkml:elements
   
 classes:
-  Column:
-    slots:
+  TableSchema:
+    implements:
+      - linkml:TwoDimensionalArray
+      - linkml:ColumnOrderedArray
+    attributes:
+      slots:
       - Count_date
       - AF
       - Site_id
       - count_fish
-    implements: saved:Column
-
-  TableSchema:
-    tree_root: true
-    attributes:
-      columns:
-        multivalued: true
-        inlined: true
-        inlined_as_list: true
-        range: Column
-    implements: saved:TableSchema
