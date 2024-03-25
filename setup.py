@@ -6,7 +6,7 @@ setup(
     name="fisdat",
     version="0.2",
     description="Data schema checking and uploading",
-    author=["William Waites", "Meadhbh Moriarty"],
+    author=["William Waites", "Meadhbh Moriarty", "Duncan Guthrie"],
     author_email="william.waites@strath.ac.uk",
     keywords=["biological data", "semantic web"],
     classifiers=[
@@ -33,6 +33,7 @@ setup(
         "google-cloud-storage",
         "linkml",
         "linkml-runtime",
+        "mypy"
     ],
     entry_points={
         "console_scripts": [
