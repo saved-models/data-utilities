@@ -166,13 +166,14 @@ def append_job_manifest (data       : str
             print (job_table (manifest_skeleton, manifest, preamble = True))
     return (result)
 
-def manifest_wrapper (data       : str
-                    , schema     : str
-                    , data_model : str
-                    , manifest   : str
-                    , job_title  : str
-                    , validate   : bool
-                    , verbosity  : int) -> bool:
+def manifest_wrapper (data        : str
+                    , schema      : str
+                    , data_model  : str
+                    , manifest    : str
+                    , job_title   : str
+                    , validate    : bool
+                    , table_class : str
+                    , verbosity   : int) -> bool:
     '''
     Simple wrapper for the two modes of `append_job_manifest' based on
     whether the manifest file exists (optional) and whether the schema
@@ -185,7 +186,7 @@ def manifest_wrapper (data       : str
     
     if (isfile (data) and isfile (schema)):
         if (validate):
-            validate_check = validate_wrapper (data, schema, "Column", verbosity)
+            validate_check = validate_wrapper (data, schema, table_class, verbosity)
         else:
             vprint (f"Validation of data-file {data} against schema {schema} disabled", verbosity)
             validate_check = True
@@ -229,6 +230,9 @@ def cli () -> None:
     parser.add_argument ("--data-model"
                        , help    = "Data model YAML specification"
                        , default = str(Path(__file__).parent / "../data-model/src/model/meta.yaml"))
+    parser.add_argument ("--table-class"
+                       , help    = "Name of LinkML class against which target file is validated"
+                       , default = "TableSchema")
     verbgr.add_argument ("-v", "--verbose"
                        , help = "Show more information about current running state"
                        , required = False
@@ -247,10 +251,11 @@ def cli () -> None:
     else:
         verbosity = 0
     
-    manifest_wrapper (data       = args.csvfile
-                    , schema     = args.schema
-                    , data_model = args.data_model
-                    , manifest   = args.manifest
-                    , job_title  = "saved_job_default"
-                    , validate   = not args.no_validate
-                    , verbosity  = verbosity)
+    manifest_wrapper (data        = args.csvfile
+                    , schema      = args.schema
+                    , data_model  = args.data_model
+                    , manifest    = args.manifest
+                    , job_title   = "saved_job_default"
+                    , validate    = not args.no_validate
+                    , table_class = args.table_class
+                    , verbosity   = verbosity)
