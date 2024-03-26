@@ -1,5 +1,11 @@
 # Fish Data Utilities
 
+## Pre-requisites:
+
+The data model is stored in an external repository. Make sure to run
+
+    git submodule init && git submodule update
+
 This is a Python package. It can be installed in any of the usual ways
 for Python packages, perhaps using a virtual environment like so,
 
@@ -9,7 +15,7 @@ for Python packages, perhaps using a virtual environment like so,
 whence installing the utilities is done as,
 
     python setup.py install
-	
+
 having done this, some new programs are available:
 
 ## fisdat - validating and working with data files
