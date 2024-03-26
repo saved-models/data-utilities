@@ -1,3 +1,3 @@
 [submodule "data-model"]
-	path = data-model
+	path = fisdat/data-model
 	url = https://github.com/saved-models/data-model

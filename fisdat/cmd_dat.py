@@ -228,7 +228,7 @@ def cli () -> None:
                        , action = "store_true")
     parser.add_argument ("--data-model"
                        , help    = "Data model YAML specification"
-                       , default = str(Path(__file__).parent / "../data-model/src/model/meta.yaml"))
+                       , default = str(Path(__file__).parent / "data-model/src/model/meta.yaml"))
     verbgr.add_argument ("-v", "--verbose"
                        , help = "Show more information about current running state"
                        , required = False

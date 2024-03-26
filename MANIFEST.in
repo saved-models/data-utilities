@@ -1,3 +1,4 @@
 include fisdat/*.py
 include examples/sentinel_cages/*.csv
 include examples/sentinel_cages/sampling_info.json
+include fisdat/data-model/src/model/*

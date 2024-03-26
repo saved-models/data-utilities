@@ -133,7 +133,7 @@ def cli () -> None:
     parser.add_argument (
         "--data-model"
       , help    = "Data model YAML specification"
-      , default = str(Path(__file__).parent / "../data-model/src/model/meta.yaml")
+      , default = str(Path(__file__).parent / "data-model/src/model/meta.yaml")
     )
     parser.add_argument ("-n", "--no-upload", "--dry-run"
                        , help   = "Don't upload files"
