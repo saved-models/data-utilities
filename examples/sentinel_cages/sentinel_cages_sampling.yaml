@@ -1,4 +1,4 @@
-id: http://localhost/saved/marinescot/sentinel_cages/sampling
+id: http://localhost/marinescot/sentinel_cages/sampling
 name: sampling
 title: "Sentinel cages sampling information schema"
 prefixes:
@@ -9,6 +9,13 @@ imports:
   - linkml:types
   - ../../data-model/src/model/core
 default_prefix: marinescot
+license: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+keywords:
+  - sea lice
+  - sampling data
+created_by: marinescot
+modified_by: saved
+last_updated_on: "2024-01-12"
 
 # head -n1 Sentinel_cage_sampling_info_update_01122022.csv | tr ',' '\n'
 #

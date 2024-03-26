@@ -1,4 +1,4 @@
-id: http://localhost/saved/marinescot/sentinel_cages/stations
+id: http://localhost/marinescot/sentinel_cages/stations
 name: stations
 title: "Sentinel cages station information schema"
 prefixes:
@@ -9,6 +9,13 @@ imports:
   - linkml:types
   - ../../data-model/src/model/core
 default_prefix: marinescot
+license: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+keywords:
+  - sea lice
+  - site data
+created_by: marinescot
+modified_by: saved
+last_updated_on: "2024-03-24"
 
 # head -n1 Sentinel_cage_station_info_6.csv | tr ',' '\n
 #
