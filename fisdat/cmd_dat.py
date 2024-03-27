@@ -14,6 +14,8 @@ import logging
 
 from fisdat.utils import fst, error, extension_helper, job_table, take, vprint, vvprint
 from fisdat.ns    import CSVW
+from importlib import resources as ir
+from . import data_model as dm
 
 def validate_wrapper (data         : str
                     , schema       : str
@@ -228,8 +230,8 @@ def cli () -> None:
                        , help   = "Disable validation"
                        , action = "store_true")
     parser.add_argument ("--data-model"
-                       , help    = "Data model YAML specification"
-                       , default = str(Path(__file__).parent / "../data-model/src/model/meta.yaml"))
+                       , help    = "Data model YAML specification fisdat/data_model/src/model"
+                       , default = "meta")
     parser.add_argument ("--table-class"
                        , help    = "Name of LinkML class against which target file is validated"
                        , default = "TableSchema")
@@ -250,10 +252,19 @@ def cli () -> None:
         verbosity = 2
     else:
         verbosity = 0
+
+    vvprint (f"Polling data model directory", verbosity)
+    root_dir   = ir.files (dm)
+    vvprint (f"Data model working directory is: {root_dir}", verbosity)
+    yaml_sch   = f"src/model/{args.data_model}.yaml"
+    vvprint (f"Data model path is: {yaml_sch}", verbosity)
+    
+    data_model_path = root_dir / yaml_sch
+    data_model = str (data_model_path)
     
     manifest_wrapper (data        = args.csvfile
                     , schema      = args.schema
-                    , data_model  = args.data_model
+                    , data_model  = data_model
                     , manifest    = args.manifest
                     , job_title   = "saved_job_default"
                     , validate    = not args.no_validate

@@ -12,11 +12,11 @@ This is a Python package. It can be installed in any of the usual ways
 for Python packages, perhaps using a virtual environment like so,
 
     python -m venv /some/where/env
-	. /some/where/env/bin/activate
+    source /some/where/env/bin/activate
 
 whence installing the utilities is done as,
 
-    python setup.py install
+    python -m pip install .
 
 having done this, some new programs are available:
 

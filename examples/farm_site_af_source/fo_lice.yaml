@@ -8,7 +8,7 @@ prefixes:
   schema:     http://schema.org/
 imports:
   - linkml:types
-  - ../../data-model/src/model/core
+  - ../../fisdat/data_model/src/model/core
 default_range:  string
 default_prefix: fiskaaling
 
@@ -46,8 +46,7 @@ classes:
     implements:
       - linkml:TwoDimensionalArray
       - linkml:ColumnOrderedArray
-    attributes:
-      slots:
+    slots:
       - Count_date
       - AF
       - Site_id

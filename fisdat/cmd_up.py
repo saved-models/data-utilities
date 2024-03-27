@@ -21,6 +21,8 @@ from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
 from fisdat.utils import fst, extension_helper, job_table, vprint, vvprint
 from fisdat.ns import CSVW
+from importlib import resources as ir
+from . import data_model as dm
 
 ## data read/write buffer size, 1MB
 BUFSIZ=1048576
@@ -130,11 +132,9 @@ def cli () -> None:
     parser.add_argument(
         "manifest", help="Manifest file"
     )
-    parser.add_argument (
-        "--data-model"
-      , help    = "Data model YAML specification"
-      , default = str(Path(__file__).parent / "../data-model/src/model/meta.yaml")
-    )
+    parser.add_argument ("--data-model"
+                       , help    = "Data model YAML specification"
+                       , default = "meta")
     parser.add_argument ("-n", "--no-upload", "--dry-run"
                        , help   = "Don't upload files"
                        , action = "store_true")
@@ -170,9 +170,9 @@ def cli () -> None:
 
         _networking._urlopen = kludge._urlopen
 
-    #data_model_path = PurePath ("data-model/src/model/meta.yaml")
+    data_model_path = ir.files (dm) / f"src/model/{args.data_model}.yaml"
     manifest_path   = PurePath (args.manifest)
-    manifest_obj    = load_manifest (args.data_model, manifest_path, verbosity)
+    manifest_obj    = load_manifest (data_model_path, manifest_path, verbosity)
         
     # Equivalent of dumping JSON in the old CLI:
     print (job_table (manifest_obj, preamble=False, mode='r'))

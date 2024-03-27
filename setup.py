@@ -27,6 +27,7 @@ setup(
     ],
     license="GPLv3",
     packages=find_packages(),
+    include_package_data=True,
     install_requires=[
         "rdflib",
         "csvwlib",
