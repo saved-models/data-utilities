@@ -31,7 +31,7 @@ run,
 
 	fisdat sentinel_cages_sampling.yaml \
 	    sentinel_cages_cleaned.csv \
-		manifest.rdf
+		manifest.ttl
 
 which will result in a slew of warnings about entries in the file
 that do not match the datatype specified in the schema (adding the
@@ -59,7 +59,7 @@ the CSV, then re-export a new table with the NA string as "".
 Once the manifest is full, uploading the data can be done with the
 program `fisup`. It is used like this,
 
-	fisup manifest.rdf
+	fisup manifest.ttl
 	
 You will need to set an environment variable to where you have
 saved your access credentials. It needs to be the full path to
@@ -75,10 +75,10 @@ generated. It is a good idea to make a note of the generated
 path. For example, from the `examples/farm_site_af_source` 
 directory,
 
-	$ fisdat fo_farms.yaml fo_farms.csv manifest.rdf
-	$ fisdat fo_lice.yaml fo_lice_data.csv manifest.rdf           
-	$ fisup manifest.rdf
-	Uploading gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562/manifest.rdf ...
+	$ fisdat fo_farms.yaml fo_farms.csv manifest.ttl
+	$ fisdat fo_lice.yaml fo_lice_data.csv manifest.ttl           
+	$ fisup manifest.ttl
+	Uploading gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562/manifest.ttl ...
 	Uploading gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562/fo_farms.csv ...
 	Uploading gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562/fo_lice_data.csv ...
 	Successfully uploaded your dataset to gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562

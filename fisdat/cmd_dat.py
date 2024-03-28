@@ -83,7 +83,7 @@ def dump_wrapper (py_obj
     output_path_abs = str (output_path.name)
     output_path_ext = extension_helper (output_path)
 
-    if (output_path_ext != "rdf"):
+    if (output_path_ext != "rdf" and output_path_ext != "ttl"):
         vprint (f"Warning: target extension has a .{output_path_ext} extension, but will actually be serialised as RDF/TTL", verbosity)
     
     formatter = _get_format (output_path_abs, "rdf")
