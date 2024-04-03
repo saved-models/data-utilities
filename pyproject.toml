@@ -9,7 +9,7 @@ authors = [
 	{ name = "Meadhbh Moriarty" },
 	{ name = "Duncan Guthrie" },
 ]
-description = "SAVED: Data schemata validation and submision"
+description = "SAVED: Data schemata validation and submission"
 readme = "README.md"
 requires-python = ">=3.5"
 keywords = ["biological data", "semantic web"]

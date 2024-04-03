@@ -19,7 +19,7 @@ from linkml.validator                import validate_file
 from linkml.validator.report         import Severity, ValidationResult, ValidationReport
 from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
-from fisdat import __version__, __full_version__
+from fisdat import __version__, __commit__
 from fisdat.utils import fst, extension_helper, job_table, vprint, vvprint
 from fisdat.ns import CSVW
 from importlib import resources as ir
@@ -115,9 +115,7 @@ def cli () -> None:
     """
     Command line interface
     """
-    version_short = __version__
-    version_full  = __full_version__
-    print (f"This is fisdat version {version_short}, commit {version_full}")
+    print (f"This is fisdat version {__version__}, commit {__commit__}")
     
     parser = argparse.ArgumentParser("fisup")
     verbgr = parser.add_mutually_exclusive_group (required = False)

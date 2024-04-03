@@ -12,7 +12,7 @@ from pathlib import Path, PurePath
 import tempfile
 import logging
 
-from fisdat import __version__, __full_version__
+from fisdat import __version__, __commit__
 from fisdat.utils import fst, error, extension_helper, job_table, take, vprint, vvprint
 from fisdat.ns    import CSVW
 from importlib import resources as ir
@@ -222,9 +222,7 @@ def manifest_wrapper (data        : str
 
     
 def cli () -> None:
-    version_short = __version__
-    version_full  = __full_version__
-    print (f"This is fisdat version {version_short}, commit {version_full}")
+    print (f"This is fisdat version {__version__}, commit {__commit__}")
     
     parser = argparse.ArgumentParser ("fisdat")
     verbgr = parser.add_mutually_exclusive_group (required = False)
