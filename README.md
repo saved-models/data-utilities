@@ -4,24 +4,30 @@
 
 After we integrated LinkML, there is an external dependency on our
 work-in-progress data model. This is stored in an external repository,
-so make sure to run,
+so make sure to run the following:
 
     git submodule init && git submodule update
 
 This is a Python package. It can be installed in any of the usual ways
-for Python packages, perhaps using a virtual environment like so,
+for Python packages, perhaps using a virtual environment like so:
 
     python -m venv /some/where/env
     source /some/where/env/bin/activate
 
-whence installing the utilities is done as,
+Whence installing the utilities is done as:
 
-    python -m pip install .
+    pip install .
 
-having done this, some new programs are available:
+If you are making local changes to any of the scripts in `fisdat/`,
+run the following (the equivalent of `setup.py`'s `--develop` flag):
+
+	pip install --editable .
+
+Having done this, some new programs are available:
 
 ## fisdat - validating and working with data files
 ### Operation
+
 The `fisdat` program is for preparing data files to be published. 
 It takes a CSV file and a schema and checks that the CSV file matches
 the schema. It then adds the file and schema to a manifest.
@@ -53,6 +59,26 @@ LinkML will happily accept empty fields. In the sentinel cages data,
 we have added an example R script called `prep.R` which will read in
 the CSV, then re-export a new table with the NA string as "".
 
+### Debugging / extra information about running state
+
+Providing the `--verbose` flag (or `-v` for short) will print messages
+about running state, e.g.:
+
+	fisdat sentinel_cages_sampling.yaml \
+	    sentinel_cages_cleaned.csv \
+		manifest.ttl \
+		--verbose
+
+To see even more information, use the `--extra-verbose` (or `-vv` for 
+short), e.g.: 
+
+	fisdat sentinel_cages_sampling.yaml \
+	    sentinel_cages_cleaned.csv \
+		manifest.ttl \
+		--extra-verbose
+
+Program version number and associated git commit is always printed.
+
 ## fisup - uploading data
 ### Operation
 
@@ -60,7 +86,7 @@ Once the manifest is full, uploading the data can be done with the
 program `fisup`. It is used like this,
 
 	fisup manifest.ttl
-	
+
 You will need to set an environment variable to where you have
 saved your access credentials. It needs to be the full path to
 the file. If you do not have access credentials, you will need
@@ -91,3 +117,8 @@ processed.
 Neither the name nor file extension of the manifest matter. They are
 always serialised as RDF (TTL). However, older manifests in JSON can
 no longer be uploaded, so make sure to re-generate them.
+
+The `--verbose` and `--extra-verbose` flags have the same effect as in
+`fisdat`. They print debugging information about running state. 
+Similarly, the version number and associated git commit are always
+printed.
