@@ -16,14 +16,11 @@ for Python packages, perhaps using a virtual environment like so:
 
 Whence installing the utilities is done as:
 
-    pip install .
-
-If you are making local changes to any of the scripts in `fisdat/`,
-run the following (the equivalent of `setup.py`'s `--develop` flag):
-
 	pip install --editable .
 
-Having done this, some new programs are available:
+The `--editable` or `-e` flag is important as it means that updates
+to the file (i.e. those fetched with git) run immediately. Having done
+this, some new programs are available:
 
 ## fisdat - validating and working with data files
 ### Operation
