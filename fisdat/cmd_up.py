@@ -115,7 +115,9 @@ def cli () -> None:
     """
     Command line interface
     """
-    print (f"This is fisdat version {__version__}, commit {__full_version__}")
+    version_short = __version__
+    version_full  = __full_version__
+    print (f"This is fisdat version {version_short}, commit {version_full}")
     
     parser = argparse.ArgumentParser("fisup")
     verbgr = parser.add_mutually_exclusive_group (required = False)

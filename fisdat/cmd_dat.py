@@ -17,7 +17,6 @@ from fisdat.utils import fst, error, extension_helper, job_table, take, vprint, 
 from fisdat.ns    import CSVW
 from importlib import resources as ir
 from . import data_model as dm
-import versioneer
 
 def validate_wrapper (data         : str
                     , schema       : str
@@ -223,7 +222,9 @@ def manifest_wrapper (data        : str
 
     
 def cli () -> None:
-    print (f"This is fisdat version {__version__}, commit {__full_version__}")
+    version_short = __version__
+    version_full  = __full_version__
+    print (f"This is fisdat version {version_short}, commit {version_full}")
     
     parser = argparse.ArgumentParser ("fisdat")
     verbgr = parser.add_mutually_exclusive_group (required = False)
