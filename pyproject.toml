@@ -33,6 +33,9 @@ fisup = "fisdat.cmd_up:cli"
 [tool.setuptools.dynamic]
 version = {attr = "fisdat.__version__"}
 
+[tool.setuptools]
+packages = ["fisdat"]
+
 [tool.versioneer]
 VCS = "git"
 style = "pep440"
