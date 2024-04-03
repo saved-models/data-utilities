@@ -12,10 +12,12 @@ from pathlib import Path, PurePath
 import tempfile
 import logging
 
+from fisdat import __version__, __full_version__
 from fisdat.utils import fst, error, extension_helper, job_table, take, vprint, vvprint
 from fisdat.ns    import CSVW
 from importlib import resources as ir
 from . import data_model as dm
+import versioneer
 
 def validate_wrapper (data         : str
                     , schema       : str
@@ -221,6 +223,8 @@ def manifest_wrapper (data        : str
 
     
 def cli () -> None:
+    print (f"This is fisdat version {__version__}, commit {__full_version__}")
+    
     parser = argparse.ArgumentParser ("fisdat")
     verbgr = parser.add_mutually_exclusive_group (required = False)
     parser.add_argument ("schema"  , help = "Schema file/URI (YAML)", type = str)
@@ -252,7 +256,7 @@ def cli () -> None:
         verbosity = 2
     else:
         verbosity = 0
-
+        
     vvprint (f"Polling data model directory", verbosity)
     root_dir   = ir.files (dm)
     vvprint (f"Data model working directory is: {root_dir}", verbosity)
