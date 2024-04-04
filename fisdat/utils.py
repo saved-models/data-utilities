@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from linkml.utils.schemaloader import SchemaLoader
 from pathlib         import PurePath
 
 def fst(g):
@@ -32,6 +33,25 @@ def extension_helper (target_path : PurePath) -> str:
         return (target)
     else:
         return (target_path.suffix [1 : len (target_path.suffix)])
+
+def conversion_shim (schema : str, verbosity : bool) -> dict [str, str]:
+    """
+    A shim which serialises the schema proper, to extract components of
+    interest, so that they can be serialised in the manifest `tables'
+    section.
+    """
+    vvprint (f"Calling `conversion_shim (schema = {schema})'", verbosity)
+    schema_obj = SchemaLoader (schema).schema
+    properties = {
+        "title":       schema_obj.title
+      , "atomic_name": schema_obj.name
+      , "remote_path": schema_obj.id 
+      , "description": ""
+      , "license":     schema_obj.license
+      , "keywords":    schema_obj.keywords
+    }
+    vvprint (f"Extracted schema properties: {properties}", verbosity)
+    return (properties)
 
 def take (iter : Iterable, n : int, ini : int = 0) -> Iterable:
     '''

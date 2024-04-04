@@ -3,6 +3,7 @@ from linkml.utils.datautils          import _get_context, _get_format, get_dumpe
 from linkml.utils.schema_builder     import SchemaBuilder
 from linkml.validator                import validate_file
 from linkml.validator.report         import Severity, ValidationResult, ValidationReport
+from linkml_runtime.loaders          import YAMLLoader
 from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
 import argparse
@@ -13,7 +14,7 @@ import tempfile
 import logging
 
 from fisdat import __version__, __commit__
-from fisdat.utils import fst, error, extension_helper, job_table, take, vprint, vvprint
+from fisdat.utils import fst, error, conversion_shim, extension_helper, job_table, take, vprint, vvprint
 from fisdat.ns    import CSVW
 from importlib import resources as ir
 from . import data_model as dm
@@ -94,13 +95,13 @@ def dump_wrapper (py_obj
     dumper.dump (py_obj, output_path_abs, schemaview = data_model_view)
     return (True)
 
-def append_job_manifest (data       : str
-                       , schema     : str
-                       , data_model : str
-                       , manifest   : str
-                       , job_title  : str
-                       , mode       : str
-                       , verbosity  : int) -> bool:
+def append_job_manifest (data           : str
+                       , schema         : str
+                       , data_model     : str
+                       , manifest       : str
+                       , manifest_title : str
+                       , mode           : str
+                       , verbosity      : int) -> bool:
     '''
     Given a data file, a file schema, and the parent data model, build
     up a Python object which can be serialised to RDF.
@@ -108,7 +109,7 @@ def append_job_manifest (data       : str
     are ncessary when serialising JSON-LD and RDF. It can point to
     job.yaml or the meta-model which pulls it in at the top-level.
     '''
-    vvprint (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, job_title = {job_title}, mode = {mode})", verbosity)
+    vvprint (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, manifest_title = {manifest_title}, mode = {mode})", verbosity)
     
     data_model_path = PurePath (data_model)
     manifest_path   = PurePath (manifest)
@@ -129,10 +130,21 @@ def append_job_manifest (data       : str
     py_data_model_module = py_data_model_base.compile_module ()
     py_data_model_view   = py_data_model_base.schemaview
 
+    schema_properties = conversion_shim (schema, verbosity)
+    
     # We've already got the schema, now add the data
-    staging_table = py_data_model_module.TableDesc (path        = data_path.name
-                                                  , schema_path = schema_path.name
-                                                  , hash        = data_hash)
+    #staging_table = py_data_model_module.TableDesc (path        = data_path.name
+    #                                              , schema_path = schema_path.name
+    #                                              , hash        = data_hash)
+    staging_table = py_data_model_module.TableDesc (
+        title       = schema_properties["title"]
+      , atomic_name = schema_properties["atomic_name"]
+      , description = schema_properties["description"] # Partly for filling out a template, use this even empty
+      , path        = data_path.name
+      , schema_path = schema_path.name
+      , hash        = data_hash
+      , scope       = []
+    )
     
     if (mode == "initialise"):
         vprint (f"Initialising manifest {manifest}", verbosity)
@@ -169,20 +181,20 @@ def append_job_manifest (data       : str
             print (job_table (manifest_skeleton, manifest, preamble = True))
     return (result)
 
-def manifest_wrapper (data        : str
-                    , schema      : str
-                    , data_model  : str
-                    , manifest    : str
-                    , job_title   : str
-                    , validate    : bool
-                    , table_class : str
-                    , verbosity   : int) -> bool:
+def manifest_wrapper (data           : str
+                    , schema         : str
+                    , data_model     : str
+                    , manifest       : str
+                    , manifest_title : str
+                    , validate       : bool
+                    , table_class    : str
+                    , verbosity      : int) -> bool:
     '''
     Simple wrapper for the two modes of `append_job_manifest' based on
     whether the manifest file exists (optional) and whether the schema
     and data file exists (obviously mandatory).
     '''
-    vvprint (f"Called `manifest_wrapper (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, job_title = {job_title}, validate = {validate})", verbosity)
+    vvprint (f"Called `manifest_wrapper (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, manifest_title = {manifest_title}, validate = {validate})'", verbosity)
     vvprint (f"Checking that input data {data} and schema {schema} files exist", verbosity)
     
     prereq_check = isfile (data) and isfile (schema)
@@ -198,11 +210,11 @@ def manifest_wrapper (data        : str
             if (isfile (manifest)):
                 vprint (f"Manifest exists, appending to manifest {manifest}", verbosity)
                 result = append_job_manifest (data, schema, data_model, manifest
-                                            , job_title, "append", verbosity)
+                                            , manifest_title, "append", verbosity)
             else:
                 vprint (f"Manifest does not exist, creating new manifest {manifest}", verbosity)
                 result = append_job_manifest (data, schema, data_model, manifest
-                                            , job_title, "initialise", verbosity)
+                                            , manifest_title, "initialise", verbosity)
             return (result)
         else:
             '''
@@ -218,8 +230,6 @@ def manifest_wrapper (data        : str
         elif (not isfile (schema)):
             print (f"Schema file {schema} does not exist!")
         return (prereq_check)
-
-
     
 def cli () -> None:
     print (f"This is fisdat version {__version__}, commit {__commit__}")
@@ -246,6 +256,7 @@ def cli () -> None:
                        , help = "Show even more information about current running state"
                        , required = False
                        , action   = "store_true")
+    parser.add_argument ("--shim", action = "store_true")
 
     args = parser.parse_args ()
 
@@ -257,19 +268,23 @@ def cli () -> None:
         verbosity = 0
         
     vvprint (f"Polling data model directory", verbosity)
-    root_dir   = ir.files (dm)
+    root_dir = ir.files (dm)
     vvprint (f"Data model working directory is: {root_dir}", verbosity)
-    yaml_sch   = f"src/model/{args.data_model}.yaml"
+    yaml_sch = f"src/model/{args.data_model}.yaml"
     vvprint (f"Data model path is: {yaml_sch}", verbosity)
     
     data_model_path = root_dir / yaml_sch
     data_model = str (data_model_path)
-    
-    manifest_wrapper (data        = args.csvfile
-                    , schema      = args.schema
-                    , data_model  = data_model
-                    , manifest    = args.manifest
-                    , job_title   = "saved_job_default"
-                    , validate    = not args.no_validate
-                    , table_class = args.table_class
-                    , verbosity   = verbosity)
+
+    if (args.shim):
+        conversion_shim (args.schema)
+
+    else:
+        manifest_wrapper (data           = args.csvfile
+                    , schema         = args.schema
+                    , data_model     = data_model
+                    , manifest       = args.manifest
+                    , manifest_title = "saved_job_default"
+                    , validate       = not args.no_validate
+                    , table_class    = args.table_class
+                    , verbosity      = verbosity)
