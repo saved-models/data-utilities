@@ -130,13 +130,13 @@ def append_job_manifest (data       : str
     py_data_model_view   = py_data_model_base.schemaview
 
     # We've already got the schema, now add the data
-    staging_table = py_data_model_module.TableDesc (data_uri    = data_path.name
-                                                  , data_schema = schema_path.name
-                                                  , data_hash   = data_hash)
+    staging_table = py_data_model_module.TableDesc (path        = data_path.name
+                                                  , schema_path = schema_path.name
+                                                  , hash        = data_hash)
     
     if (mode == "initialise"):
         vprint (f"Initialising manifest {manifest}", verbosity)
-        manifest_skeleton = py_data_model_module.JobDesc (tables = staging_table)
+        manifest_skeleton = py_data_model_module.ManifestDesc (tables = staging_table)
         result = dump_wrapper (py_obj          = manifest_skeleton
                              , data_model_view = py_data_model_view
                              , output_path     = manifest_path
@@ -144,14 +144,14 @@ def append_job_manifest (data       : str
         print (job_table (manifest_skeleton, manifest, preamble = True))
     else:
         vprint (f"Reading existing manifest {manifest}", verbosity)
-        target_class      = py_data_model_module.__dict__["JobDesc"]
+        target_class      = py_data_model_module.__dict__["ManifestDesc"]
         loader            = get_loader  ("rdf")
         original_manifest = loader.load (source       = manifest
                                        , target_class = target_class
                                        , schemaview   = py_data_model_view)
 
         vprint (f"Checking that data file {data} does not already exist in manifest", verbosity)
-        extant_data  = map (lambda k : PurePath (k.data_uri).name, original_manifest.tables)
+        extant_data  = map (lambda k : PurePath (k.path).name, original_manifest.tables)
         check_extant = data_path.name in extant_data
         
         if (check_extant):
@@ -160,7 +160,7 @@ def append_job_manifest (data       : str
         else:
             vprint (f"Data-file {data} was not in manifest, adding", verbosity)
             staging_tables    = original_manifest.tables + [staging_table]
-            manifest_skeleton = py_data_model_module.JobDesc (tables = staging_tables)
+            manifest_skeleton = py_data_model_module.ManifestDesc (tables = staging_tables)
 
             result = dump_wrapper (py_obj          = manifest_skeleton
                                  , data_model_view = py_data_model_view

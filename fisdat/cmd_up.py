@@ -104,7 +104,7 @@ def load_manifest (data_model_path : PurePath, manifest_path : PurePath, verbosi
     if (manifest_ext != "rdf"):
         vprint (f"Warning: target extension has a .{manifest_ext} extension, but will actually be serialised as RDF/TTL", verbosity)
 
-    target_class      = py_data_model_module.__dict__["JobDesc"]
+    target_class      = py_data_model_module.__dict__["ManifestDesc"]
     loader            = get_loader  ("rdf")
     original_manifest = loader.load (source       = manifest
                                    , target_class = target_class
@@ -187,7 +187,7 @@ def cli () -> None:
         chdir (mdir)
 
     for table in manifest_obj.tables:
-        target_uri = table.data_uri
+        target_uri = table.path
         print (f"Checking {target_uri} ...")
 
         prereq_check = isfile (target_uri)
@@ -199,11 +199,11 @@ def cli () -> None:
                 data = fp.read ()
                 hash = sha384  (data)
                 
-                if hash.hexdigest() != table.data_hash:
+                if hash.hexdigest() != table.hash:
                     raise ValueError(f"{target_uri} has changed, please revalidate with `fisdat'")        
 
-    data       = [table.data_uri    for table in manifest_obj.tables]
-    schemas    = [table.data_schema for table in manifest_obj.tables]
+    data       = [table.path    for table in manifest_obj.tables]
+    schemas    = [table.schema_path for table in manifest_obj.tables]
     time_stamp = datetime.today ().strftime ('%Y%m%d')
     short_name = manifest_obj.source.split('@')[0]     
     url        = upload_files (args
