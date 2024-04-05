@@ -1,7 +1,9 @@
-from collections.abc import Iterable
+from collections.abc           import Iterable
 from linkml.utils.schemaloader import SchemaLoader
+from linkml.validator          import validate_file
 import logging
-from pathlib         import PurePath
+from os.path import isfile
+from pathlib import PurePath
 
 def fst(g):
     """
@@ -11,7 +13,47 @@ def fst(g):
     for e in g:
         return e
     raise Exception("Generator is empty")
+
+def validation_helper (data         : str
+                     , schema       : str
+                     , target_class : str) -> bool:
+    '''
+    `validate_file()' either returns an empty list or a collection of
+    errors in a report (`linkml.validator.report.ValidationReport').
+    
+    Setting the `strict' flag means that it fails on the first error,
+    so we only get one. I think this behaviour is better as it catches
+    the first error and should make it easier to fix.
+
+    Compared to the hideous Python Traceback, these errors are remarkably
+    friendly and informative!
+    '''
+    logging.debug (f"Called `validate_wrapper (data = {data}, schema = {schema}, target_class = {target_class})'")
+    prereq_check = isfile (data) and isfile (schema)
+
+    if (prereq_check):
+        report  = validate_file (data, schema, target_class, strict = True)
+        results = report.results
+
+        if (not results):
+            logging.info (f"Validation success: data file {data} against schema file {schema}, with target class {target_class}")
+            return (True)
+        else:
+            single_result = results[0]
+            severity = single_result.severity
+            problem  = single_result.message
+            instance = single_result.instance
+            
+            print ("Validation error: ")
+            print (f"-> Severity: {severity}")
+            print (f"-> Message: {problem}")
+            print (f"-> Trace: {instance}")
         
+            return (False)
+    else:
+        print (f"Data file {data} and schema file {schema} must exist!")
+        return (prereq_check)
+
 def extension_helper (target_path : PurePath) -> str:
     '''
     Get the extension without the leading dot,
@@ -23,7 +65,7 @@ def extension_helper (target_path : PurePath) -> str:
     else:
         return (target_path.suffix [1 : len (target_path.suffix)])
 
-def conversion_shim (schema : str) -> dict [str, str]:
+def schema_components_helper (schema : str) -> dict [str, str]:
     """
     A shim which serialises the schema proper, to extract components of
     interest, so that they can be serialised in the manifest `tables'
@@ -31,14 +73,19 @@ def conversion_shim (schema : str) -> dict [str, str]:
     """
     logging.debug (f"Calling `conversion_shim (schema = {schema})'")
     schema_obj = SchemaLoader (schema).schema
+    
+    target_columns = schema_obj.classes ["TableSchema"].slots
+    
     properties = {
         "title":       schema_obj.title
       , "atomic_name": schema_obj.name
-      , "remote_path": schema_obj.id 
-      , "description": ""
+      , "remote_path": schema_obj.id
+      , "description": str (schema_obj.description or "") # empty string meaningful
       , "license":     schema_obj.license
       , "keywords":    schema_obj.keywords
+      , "columns":     target_columns
     }
+    
     logging.debug (f"Extracted schema properties: {properties}")
     return (properties)
 

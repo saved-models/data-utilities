@@ -120,47 +120,37 @@ def cli () -> None:
     parser = argparse.ArgumentParser("fisup")
     verbgr = parser.add_mutually_exclusive_group (required = False)
 
-    parser.add_argument(
-        "-u", "--unsecure", action="store_true", help="Disable SSL validation"
-    )
-    parser.add_argument(
-        "-b", "--bucket", default="saved-fisdat", help="Bucket to upload into"
-    )
-    parser.add_argument(
-        "-d", "--directory", default=None, help="Directory within bucket to upload into"
-    )
-    parser.add_argument(
-        "-s", "--source", default=None, help="Data source email"
-    )
-    parser.add_argument(
-        "manifest", help="Manifest file"
-    )
-    parser.add_argument (
-        "--data-model"
-      , help    = "Data model YAML specification"
-      , default = "meta"
-    )
-    parser.add_argument (
-        "-n", "--no-upload", "--dry-run"
-      , help   = "Don't upload files"
-      , action = "store_true"
-    )
-    verbgr.add_argument (
-        "-v", "--verbose"
-      , help     = "Show more information about current running state"
-      , required = False
-      , action   = "store_const"
-      , dest     = "log_level"
-      , const    = logging.INFO
-    )
-    verbgr.add_argument (
-        "-vv", "--extra-verbose"
-      , help     = "Show even more information about current running state"
-      , required = False
-      , action   = "store_const"
-      , dest     = "log_level"
-      , const    = logging.DEBUG
-    )
+    parser.add_argument ("-u", "--unsecure"
+                       , action="store_true"
+                       , help="Disable SSL validation")
+    parser.add_argument ("-b", "--bucket"
+                       , default="saved-fisdat"
+                       , help="Bucket to upload into")
+    parser.add_argument ("-d", "--directory"
+                       , help="Directory within bucket to upload into"
+                       , default = None)
+    parser.add_argument ("-s", "--source"
+                       , help="Data source email"
+                       , default = None)
+    parser.add_argument ("manifest", help="Manifest file")
+    parser.add_argument ("--data-model"
+                       , help     = "Data model YAML specification in fisdat/data_model/src/model"
+                       , default  = "meta")
+    parser.add_argument ("-n", "--no-upload", "--dry-run"
+                       , help     = "Don't upload files"
+                       , action   = "store_true")
+    verbgr.add_argument ("-v", "--verbose"
+                       , help     = "Show more information about current running state"
+                       , required = False
+                       , action   = "store_const"
+                       , dest     = "log_level"
+                       , const    = logging.INFO)
+    verbgr.add_argument ("-vv", "--extra-verbose"
+                       , help     = "Show even more information about current running state"
+                       , required = False
+                       , action   = "store_const"
+                       , dest     = "log_level"
+                       , const    = logging.DEBUG)
     args = parser.parse_args ()
     
     logging.basicConfig (level = args.log_level)

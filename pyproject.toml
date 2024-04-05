@@ -1,19 +1,19 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm", "versioneer[toml]==0.29"]
+requires      = ["setuptools", "setuptools-scm", "versioneer[toml]==0.29"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fisdat"
+name    = "fisdat"
 authors = [
 	{ name = "William Waites" },
 	{ name = "Meadhbh Moriarty" },
 	{ name = "Duncan Guthrie" },
 ]
-description = "SAVED: Data schemata validation and submission"
-readme = "README.md"
+description     = "SAVED: Data schemata validation and submission"
+readme          = "README.md"
 requires-python = ">=3.5"
-keywords = ["biological data", "semantic web"]
-license = {text = "GPLv3"}
+keywords        = ["biological data", "semantic web"]
+license         = {text = "GPLv3"}
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
@@ -28,7 +28,8 @@ dynamic = ["version"]
 
 [project.scripts]
 fisdat = "fisdat.cmd_dat:cli"
-fisup = "fisdat.cmd_up:cli"
+fisjob = "fisdat.cmd_job:cli"
+fisup  = "fisdat.cmd_up:cli"
 
 [tool.setuptools.dynamic]
 version = {attr = "fisdat.__version__"}
@@ -37,9 +38,9 @@ version = {attr = "fisdat.__version__"}
 packages = ["fisdat"]
 
 [tool.versioneer]
-VCS = "git"
-style = "pep440"
+VCS                = "git"
+style              = "pep440"
 versionfile_source = "fisdat/_version.py"
-versionfile_build = "fisdat/_version.py"
-tag_prefix = ""
-parentdir_prefix = "fisdat"
+versionfile_build  = "fisdat/_version.py"
+tag_prefix         = ""
+parentdir_prefix   = "fisdat"

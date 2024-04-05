@@ -1,10 +1,8 @@
 from linkml.generators.pythongen     import PythonGenerator
 from linkml.utils.schema_builder     import SchemaBuilder
-from linkml.validator                import validate_file
-from linkml.validator.report         import Severity, ValidationResult, ValidationReport
 from linkml_runtime.dumpers          import RDFLibDumper, YAMLDumper
 from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
-from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
+from linkml_runtime.utils.schemaview import SchemaView
 
 import argparse
 from hashlib import sha384
@@ -14,50 +12,10 @@ import inspect
 import logging
 
 from fisdat import __version__, __commit__
-from fisdat.utils import fst, error, conversion_shim, extension_helper, job_table, take
+from fisdat.utils import fst, error, extension_helper, job_table, schema_components_helper, take, validation_helper
 from fisdat.ns    import CSVW
 from importlib import resources as ir
 from . import data_model as dm
-
-def validate_wrapper (data         : str
-                    , schema       : str
-                    , target_class : str) -> bool:
-    '''
-    `validate_file()' either returns an empty list or a collection of
-    errors in a report (`linkml.validator.report.ValidationReport').
-    
-    Setting the `strict' flag means that it fails on the first error,
-    so we only get one. I think this behaviour is better as it catches
-    the first error and should make it easier to fix.
-
-    Compared to the hideous Python Traceback, these errors are remarkably
-    friendly and informative!
-    '''
-    logging.debug (f"Called `validate_wrapper (data = {data}, schema = {schema}, target_class = {target_class})'")
-    prereq_check = isfile (data) and isfile (schema)
-
-    if (prereq_check):
-        report  = validate_file (data, schema, target_class, strict = True)
-        results = report.results
-
-        if (not results):
-            logging.info (f"Validation success: data file {data} against schema file {schema}, with target class {target_class}")
-            return (True)
-        else:
-            single_result = results[0]
-            severity = single_result.severity
-            problem  = single_result.message
-            instance = single_result.instance
-            
-            print ("Validation error: ")
-            print (f"-> Severity: {severity}")
-            print (f"-> Message: {problem}")
-            print (f"-> Trace: {instance}")
-        
-            return (False)
-    else:
-        print (f"Data file {data} and schema file {schema} must exist!")
-        return (prereq_check)
 
 def dump_wrapper (py_obj
                 , data_model_view : SchemaView
@@ -110,7 +68,7 @@ def append_job_manifest (data           : str
                        , manifest       : str
                        , manifest_title : str
                        , mode           : str
-                       , example_job    : bool) -> bool:
+                       , scoped_columns : [str]) -> bool:
     '''
     Given a data file, a file schema, and the parent data model, build
     up a Python object which can be serialised to RDF.
@@ -139,44 +97,36 @@ def append_job_manifest (data           : str
     py_data_model_module = py_data_model_base.compile_module ()
     py_data_model_view   = py_data_model_base.schemaview
 
-    schema_properties = conversion_shim (schema)
+    schema_properties = schema_components_helper (schema)
     
     logging.info ("Generating base job description")
     target_set_atomic = schema_properties ["atomic_name"]
-    staging_example_job = py_data_model_module.JobDesc (
+
+    if (len (scoped_columns) == 0):
+        target_set_columns = schema_properties ["columns"]
+    else:
+        target_set_columns = scoped_columns
+    
+    initial_example_job = py_data_model_module.JobDesc (
         title             = f"Empty job template for {target_set_atomic}"
       , atomic_name       = f"job_empty_{target_set_atomic}" # The test job draws from 
       , job_type          = 'ignore'
       , job_auto_generate = True
       , job_sources       = py_data_model_module.SourceDesc (
           atomic_name = target_set_atomic
-        , scope       = ['test_col_0', 'test_col_1', 'test_col_2']
+        , scope       = target_set_columns
       )
     )
-    staging_empty_job = py_data_model_module.JobDesc (
-        title             = ''
-      , atomic_name       = ''
-      , job_type          = 'ignore'
-      , job_auto_generate = False
-      , job_sources       = py_data_model_module.SourceDesc (
-          atomic_name = ''
-        , scope       = ['']
-      )
-    )
-    if (example_job):
-        staging_job = staging_example_job
-    else:
-        staging_job = staging_empty_job
     
     logging.info ("Generating base table description")
     staging_table = py_data_model_module.TableDesc (
         title       = schema_properties ["title"]
-      , atomic_name = schema_properties ["atomic_name"] # $target_set_atomic
+      , atomic_name = target_set_atomic
       , description = schema_properties ["description"] # Partly for filling out a template, use even empty
       , path        = data_path.name
       , schema_path = schema_path.name
       , hash        = data_hash
-      , scope       = ['']
+      , scope       = target_set_columns
     )
     logging.info ("Proceed with manifest initialise or append operation")
     
@@ -184,7 +134,7 @@ def append_job_manifest (data           : str
         logging.info (f"Initialising manifest {manifest}")
         manifest_skeleton = py_data_model_module.ManifestDesc (
             tables        = staging_table
-          , jobs          = [staging_job]
+          , jobs          = [initial_example_job]
           , local_version = __version__
         )
         result = dump_wrapper (py_obj          = manifest_skeleton
@@ -241,7 +191,7 @@ def manifest_wrapper (data           : str
                     , manifest_title : str
                     , validate       : bool
                     , table_class    : str
-                    , example_job    : bool) -> bool:
+                    , scoped_columns : list[str]) -> bool:
     '''
     Simple wrapper for the two modes of `append_job_manifest' based on
     whether the manifest file exists (optional) and whether the schema
@@ -254,27 +204,27 @@ def manifest_wrapper (data           : str
     
     if (isfile (data) and isfile (schema)):
         if (validate):
-            validate_check = validate_wrapper (data, schema, table_class)
+            validation_check = validation_helper (data, schema, table_class)
         else:
             logging.info (f"Validation of data-file {data} against schema {schema} disabled")
-            validate_check = True
+            validation_check = True
             
-        if (validate_check):
+        if (validation_check):
             if (isfile (manifest)):
                 logging.info (f"Manifest exists, appending to manifest {manifest}")
                 result = append_job_manifest (data, schema, data_model, manifest
-                                            , manifest_title, "append", example_job)
+                                            , manifest_title, "append", scoped_columns)
             else:
                 logging.info (f"Manifest does not exist, creating new manifest {manifest}")
                 result = append_job_manifest (data, schema, data_model, manifest
-                                            , manifest_title, "initialise", example_job)
+                                            , manifest_title, "initialise", scoped_columns)
             return (result)
         else:
             '''
-            `validate_wrapper' already returns informative error
+            `validation_helper' already returns informative error
             messages, so just return its boolean signal
             '''
-            return (validate_check)
+            return (validation_check)
     else:
         if (not isfile (data) and not isfile (schema)):
             print (f"Neither data file {data} nor schema file {schema} exist!")
@@ -283,6 +233,8 @@ def manifest_wrapper (data           : str
         elif (not isfile (schema)):
             print (f"Schema file {schema} does not exist!")
         return (prereq_check)
+
+
     
 def cli () -> None:
     print (f"This is fisdat version {__version__}, commit {__commit__}")
@@ -293,17 +245,19 @@ def cli () -> None:
     parser.add_argument ("csvfile" , help = "CSV data file", type = str)
     parser.add_argument ("manifest", help = "Manifest file", type = str)
     parser.add_argument ("-n", "--no-validate", "--dry-run"
-                       , help   = "Disable validation"
-                       , action = "store_true")
+                       , help     = "Disable validation"
+                       , action   = "store_true")
     parser.add_argument ("--data-model"
-                       , help    = "Data model YAML specification fisdat/data_model/src/model"
-                       , default = "meta")
+                       , help     = "Data model YAML specification in fisdat/data_model/src/model"
+                       , default  = "meta")
     parser.add_argument ("--table-class"
-                       , help    = "Name of LinkML class against which target file is validated"
-                       , default = "TableSchema")
-    parser.add_argument ("--example-job"
-                       , help = "Fill out example job section when generating manifest"
-                       , action = "store_true")
+                       , help     = "Name of LinkML class against which target file is validated"
+                       , default  = "TableSchema")
+    parser.add_argument ("--job-scope"
+                       , help     = "Use these columns to fill out example job section in initial manifest"
+                       , metavar  = 'COL'
+                       , nargs    = '+'
+                       , default  = [])
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"
                        , required = False
@@ -317,10 +271,13 @@ def cli () -> None:
                        , dest     = "log_level"
                        , const    = logging.DEBUG)
 
+
     args = parser.parse_args ()
 
     logging.basicConfig (level = args.log_level)
-            
+
+    logging.debug (f"Columns selected to bring into job scope are f{args.job_scope}")
+    
     logging.debug (f"Polling data model directory")
     root_dir = ir.files (dm)
     logging.debug (f"Data model working directory is: {root_dir}")
@@ -330,7 +287,6 @@ def cli () -> None:
     data_model_path = root_dir / yaml_sch
     data_model = str (data_model_path)
 
-
     manifest_wrapper (data           = args.csvfile
                     , schema         = args.schema
                     , data_model     = data_model
@@ -338,4 +294,4 @@ def cli () -> None:
                     , manifest_title = "saved_job_default"
                     , validate       = not args.no_validate
                     , table_class    = args.table_class
-                    , example_job    = args.example_job)
+                    , scoped_columns = args.job_scope)
