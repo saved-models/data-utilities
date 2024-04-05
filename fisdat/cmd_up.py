@@ -9,6 +9,7 @@ from os.path import isfile, basename, dirname
 from os import chdir
 from pathlib import Path, PurePath
 import json
+import logging
 import time
 import uuid
 
@@ -20,7 +21,7 @@ from linkml.validator.report         import Severity, ValidationResult, Validati
 from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
 from fisdat import __version__, __commit__
-from fisdat.utils import fst, extension_helper, job_table, vprint, vvprint
+from fisdat.utils import fst, extension_helper, job_table
 from fisdat.ns import CSVW
 from importlib import resources as ir
 from . import data_model as dm
@@ -31,9 +32,8 @@ BUFSIZ=1048576
 def upload_files (args      : [str]
                 , files     : [str]
                 , owner     : str
-                , ts        : str
-                , verbosity : int) -> str:
-    vvprint (f"Called `upload_files (args = {args}, files = {files}, owner = {owner}, ts = {ts})'", verbosity)
+                , ts        : str) -> str:
+    logging.debug (f"Called `upload_files (args = {args}, files = {files}, owner = {owner}, ts = {ts})'")
 
     gen_path = lambda owner, ts, extra : owner + "/" + ts + "/" + extra
     client   = storage.Client()
@@ -68,17 +68,17 @@ def upload_files (args      : [str]
             print (f"Uploaded {fname} in {elapsed}s")
     return f"gs://{args.bucket}/{path}"
 
-def source (verbosity : int) -> str:
-    vvprint ("Called `source()'", verbosity)
+def source () -> str:
+    logging.debug ("Called `source()'")
     from google.cloud import client
     c   = client.Client ()
     res = c._credentials.service_account_email
-    vprint (f"GCP account e-mail: {res}", verbosity)
+    logging.info (f"GCP account e-mail: {res}")
     return res
 
 # Can't type this as we haven't compiled the model to Python data-classes yet
 # Instead use the horrible target_class thing below
-def load_manifest (data_model_path : PurePath, manifest_path : PurePath, verbosity : int):
+def load_manifest (data_model_path : PurePath, manifest_path : PurePath):
     '''
     Note that this duplicates some of the code in cmd_dat.py, since
     loading the schema is a part of the `append_manifest()' function.
@@ -95,14 +95,14 @@ def load_manifest (data_model_path : PurePath, manifest_path : PurePath, verbosi
     manifest     = str (manifest_path)
     manifest_ext = extension_helper (manifest_path)
 
-    vvprint (f"Called `load_manifest (data_model_path = {data_model}, manifest_path = {manifest})'", verbosity)
+    logging.debug (f"Called `load_manifest (data_model_path = {data_model}, manifest_path = {manifest})'")
     
     py_data_model_base   = PythonGenerator (data_model)
     py_data_model_module = py_data_model_base.compile_module ()
     py_data_model_view   = py_data_model_base.schemaview
     
     if (manifest_ext != "rdf"):
-        vprint (f"Warning: target extension has a .{manifest_ext} extension, but will actually be serialised as RDF/TTL", verbosity)
+        logging.info (f"Warning: target extension has a .{manifest_ext} extension, but will actually be serialised as RDF/TTL")
 
     target_class      = py_data_model_module.__dict__["ManifestDesc"]
     loader            = get_loader  ("rdf")
@@ -135,32 +135,39 @@ def cli () -> None:
     parser.add_argument(
         "manifest", help="Manifest file"
     )
-    parser.add_argument ("--data-model"
-                       , help    = "Data model YAML specification"
-                       , default = "meta")
-    parser.add_argument ("-n", "--no-upload", "--dry-run"
-                       , help   = "Don't upload files"
-                       , action = "store_true")
-    verbgr.add_argument (
-        "-v", "--verbose", required = False, action = "store_true"
-      , help = "Show more information about current running state"
+    parser.add_argument (
+        "--data-model"
+      , help    = "Data model YAML specification"
+      , default = "meta"
+    )
+    parser.add_argument (
+        "-n", "--no-upload", "--dry-run"
+      , help   = "Don't upload files"
+      , action = "store_true"
     )
     verbgr.add_argument (
-        "-vv", "--extra-verbose", required = False, action = "store_true"
-      , help = "Show even more information about current running state"
+        "-v", "--verbose"
+      , help     = "Show more information about current running state"
+      , required = False
+      , action   = "store_const"
+      , dest     = "log_level"
+      , const    = logging.INFO
     )
-
+    verbgr.add_argument (
+        "-vv", "--extra-verbose"
+      , help     = "Show even more information about current running state"
+      , required = False
+      , action   = "store_const"
+      , dest     = "log_level"
+      , const    = logging.DEBUG
+    )
     args = parser.parse_args ()
     
-    if (args.verbose):
-        verbosity = 1
-    elif (args.extra_verbose):
-        verbosity = 2
-    else:
-        verbosity = 0
+    logging.basicConfig (level = args.log_level)
+    
     # Need this to pass verbosity= into source()
     if (args.source is None):
-        data_source_email = source (verbosity)
+        data_source_email = source ()
     else:
         data_source_email = args.source
 
@@ -175,7 +182,7 @@ def cli () -> None:
 
     data_model_path = ir.files (dm) / f"src/model/{args.data_model}.yaml"
     manifest_path   = PurePath (args.manifest)
-    manifest_obj    = load_manifest (data_model_path, manifest_path, verbosity)
+    manifest_obj    = load_manifest (data_model_path, manifest_path)
         
     # Equivalent of dumping JSON in the old CLI:
     print (job_table (manifest_obj, preamble=False, mode='r'))
@@ -208,7 +215,7 @@ def cli () -> None:
     short_name = manifest_obj.source.split('@')[0]     
     url        = upload_files (args
                             , [basename (args.manifest)] + data + schemas
-                            , short_name, time_stamp, verbosity)
+                            , short_name, time_stamp)
 
     if (not args.no_upload):
         print(f"Successfully uploaded your data-set to {url}")

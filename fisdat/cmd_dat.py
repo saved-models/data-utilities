@@ -14,15 +14,14 @@ import tempfile
 import logging
 
 from fisdat import __version__, __commit__
-from fisdat.utils import fst, error, conversion_shim, extension_helper, job_table, take, vprint, vvprint
+from fisdat.utils import fst, error, conversion_shim, extension_helper, job_table, take
 from fisdat.ns    import CSVW
 from importlib import resources as ir
 from . import data_model as dm
 
 def validate_wrapper (data         : str
                     , schema       : str
-                    , target_class : str
-                    , verbosity    : int) -> bool:
+                    , target_class : str) -> bool:
     '''
     `validate_file()' either returns an empty list or a collection of
     errors in a report (`linkml.validator.report.ValidationReport').
@@ -34,7 +33,7 @@ def validate_wrapper (data         : str
     Compared to the hideous Python Traceback, these errors are remarkably
     friendly and informative!
     '''
-    vvprint (f"Called `validate_wrapper (data = {data}, schema = {schema}, target_class = {target_class})'", verbosity)
+    logging.debug (f"Called `validate_wrapper (data = {data}, schema = {schema}, target_class = {target_class})'")
     prereq_check = isfile (data) and isfile (schema)
 
     if (prereq_check):
@@ -42,7 +41,7 @@ def validate_wrapper (data         : str
         results = report.results
 
         if (not results):
-            vprint (f"Validation success: data file {data} against schema file {schema}, with target class {target_class}", verbosity)
+            logging.info (f"Validation success: data file {data} against schema file {schema}, with target class {target_class}")
             return (True)
         else:
             single_result = results[0]
@@ -51,10 +50,6 @@ def validate_wrapper (data         : str
             instance = single_result.instance
             
             print ("Validation error: ")
-            if (verbosity):
-                print (f"-> Data file: {data}")
-                print (f"-> Schema file: {schema}")
-                print (f"-> Target class: {target_class}")
             print (f"-> Severity: {severity}")
             print (f"-> Message: {problem}")
             print (f"-> Trace: {instance}")
@@ -66,8 +61,7 @@ def validate_wrapper (data         : str
 
 def dump_wrapper (py_obj
                 , data_model_view : SchemaView
-                , output_path     : PurePath
-                , verbosity       : int) -> bool:
+                , output_path     : PurePath) -> bool:
     '''
     Given a Python object to serialise, and a SchemaView object derived
     from the data model, serialise RDF.
@@ -80,18 +74,18 @@ def dump_wrapper (py_obj
     There was strange behaviour when calling RDFDumper.dumper directly,
     which is why it's not called directly.
     '''
-    vvprint (f"Called `dump_wrapper (py_obj = {py_obj}, data_model_view = {SchemaView}, output_path = {str(output_path)})'", verbosity)
+    logging.debug (f"Called `dump_wrapper (py_obj = {py_obj}, data_model_view = {SchemaView}, output_path = {str(output_path)})'")
     
     output_path_abs = str (output_path.name)
     output_path_ext = extension_helper (output_path)
 
     if (output_path_ext != "rdf" and output_path_ext != "ttl"):
-        vprint (f"Warning: target extension has a .{output_path_ext} extension, but will actually be serialised as RDF/TTL", verbosity)
+        logging.info (f"Warning: target extension has a .{output_path_ext} extension, but will actually be serialised as RDF/TTL")
     
     formatter = _get_format (output_path_abs, "rdf")
     dumper    = get_dumper  (formatter)
 
-    vprint (f"Dumping Python object to {output_path_abs}", verbosity)
+    logging.info (f"Dumping Python object to {output_path_abs}")
     dumper.dump (py_obj, output_path_abs, schemaview = data_model_view)
     return (True)
 
@@ -100,8 +94,7 @@ def append_job_manifest (data           : str
                        , data_model     : str
                        , manifest       : str
                        , manifest_title : str
-                       , mode           : str
-                       , verbosity      : int) -> bool:
+                       , mode           : str) -> bool:
     '''
     Given a data file, a file schema, and the parent data model, build
     up a Python object which can be serialised to RDF.
@@ -109,7 +102,7 @@ def append_job_manifest (data           : str
     are ncessary when serialising JSON-LD and RDF. It can point to
     job.yaml or the meta-model which pulls it in at the top-level.
     '''
-    vvprint (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, manifest_title = {manifest_title}, mode = {mode})", verbosity)
+    logging.debug (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, manifest_title = {manifest_title}, mode = {mode})")
     
     data_model_path = PurePath (data_model)
     manifest_path   = PurePath (manifest)
@@ -123,14 +116,14 @@ def append_job_manifest (data           : str
     data_hash = sha384 (data_text).hexdigest()
     
     # PythonGenerator seems to spit out WARNING messages regardless of log_level
-    vprint (f"Creating Python object from data model {data_model}", verbosity)
+    logging.info (f"Creating Python object from data model {data_model}")
     py_data_model_base = PythonGenerator (data_model)
 
-    vprint (f"Compiling Python object", verbosity)
+    logging.info (f"Compiling Python object")
     py_data_model_module = py_data_model_base.compile_module ()
     py_data_model_view   = py_data_model_base.schemaview
 
-    schema_properties = conversion_shim (schema, verbosity)
+    schema_properties = conversion_shim (schema)
     
     # We've already got the schema, now add the data
     #staging_table = py_data_model_module.TableDesc (path        = data_path.name
@@ -147,22 +140,21 @@ def append_job_manifest (data           : str
     )
     
     if (mode == "initialise"):
-        vprint (f"Initialising manifest {manifest}", verbosity)
+        logging.info (f"Initialising manifest {manifest}")
         manifest_skeleton = py_data_model_module.ManifestDesc (tables = staging_table)
         result = dump_wrapper (py_obj          = manifest_skeleton
                              , data_model_view = py_data_model_view
-                             , output_path     = manifest_path
-                             , verbosity       = verbosity)
+                             , output_path     = manifest_path)
         print (job_table (manifest_skeleton, manifest, preamble = True))
     else:
-        vprint (f"Reading existing manifest {manifest}", verbosity)
+        logging.info (f"Reading existing manifest {manifest}")
         target_class      = py_data_model_module.__dict__["ManifestDesc"]
         loader            = get_loader  ("rdf")
         original_manifest = loader.load (source       = manifest
                                        , target_class = target_class
                                        , schemaview   = py_data_model_view)
 
-        vprint (f"Checking that data file {data} does not already exist in manifest", verbosity)
+        logging.info (f"Checking that data file {data} does not already exist in manifest")
         extant_data  = map (lambda k : PurePath (k.path).name, original_manifest.tables)
         check_extant = data_path.name in extant_data
         
@@ -170,14 +162,13 @@ def append_job_manifest (data           : str
             print (f"Data-file {data} was already in the table, cannot add!")
             result = not check_extant
         else:
-            vprint (f"Data-file {data} was not in manifest, adding", verbosity)
+            logging.info (f"Data-file {data} was not in manifest, adding")
             staging_tables    = original_manifest.tables + [staging_table]
             manifest_skeleton = py_data_model_module.ManifestDesc (tables = staging_tables)
 
             result = dump_wrapper (py_obj          = manifest_skeleton
                                  , data_model_view = py_data_model_view
-                                 , output_path     = manifest_path
-                                 , verbosity       = verbosity)
+                                 , output_path     = manifest_path)
             print (job_table (manifest_skeleton, manifest, preamble = True))
     return (result)
 
@@ -187,34 +178,33 @@ def manifest_wrapper (data           : str
                     , manifest       : str
                     , manifest_title : str
                     , validate       : bool
-                    , table_class    : str
-                    , verbosity      : int) -> bool:
+                    , table_class    : str) -> bool:
     '''
     Simple wrapper for the two modes of `append_job_manifest' based on
     whether the manifest file exists (optional) and whether the schema
     and data file exists (obviously mandatory).
     '''
-    vvprint (f"Called `manifest_wrapper (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, manifest_title = {manifest_title}, validate = {validate})'", verbosity)
-    vvprint (f"Checking that input data {data} and schema {schema} files exist", verbosity)
+    logging.debug (f"Called `manifest_wrapper (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, manifest_title = {manifest_title}, validate = {validate})'")
+    logging.debug (f"Checking that input data {data} and schema {schema} files exist")
     
     prereq_check = isfile (data) and isfile (schema)
     
     if (isfile (data) and isfile (schema)):
         if (validate):
-            validate_check = validate_wrapper (data, schema, table_class, verbosity)
+            validate_check = validate_wrapper (data, schema, table_class)
         else:
-            vprint (f"Validation of data-file {data} against schema {schema} disabled", verbosity)
+            logging.info (f"Validation of data-file {data} against schema {schema} disabled")
             validate_check = True
             
         if (validate_check):
             if (isfile (manifest)):
-                vprint (f"Manifest exists, appending to manifest {manifest}", verbosity)
+                logging.info (f"Manifest exists, appending to manifest {manifest}")
                 result = append_job_manifest (data, schema, data_model, manifest
-                                            , manifest_title, "append", verbosity)
+                                            , manifest_title, "append")
             else:
-                vprint (f"Manifest does not exist, creating new manifest {manifest}", verbosity)
+                logging.info (f"Manifest does not exist, creating new manifest {manifest}")
                 result = append_job_manifest (data, schema, data_model, manifest
-                                            , manifest_title, "initialise", verbosity)
+                                            , manifest_title, "initialise")
             return (result)
         else:
             '''
@@ -249,42 +239,36 @@ def cli () -> None:
                        , help    = "Name of LinkML class against which target file is validated"
                        , default = "TableSchema")
     verbgr.add_argument ("-v", "--verbose"
-                       , help = "Show more information about current running state"
+                       , help     = "Show more information about current running state"
                        , required = False
-                       , action   = "store_true")
+                       , action   = "store_const"
+                       , dest     = "log_level"
+                       , const    = logging.INFO)
     verbgr.add_argument ("-vv", "--extra-verbose"
-                       , help = "Show even more information about current running state"
+                       , help     = "Show even more information about current running state"
                        , required = False
-                       , action   = "store_true")
+                       , action   = "store_const"
+                       , dest     = "log_level"
+                       , const    = logging.DEBUG)
     parser.add_argument ("--shim", action = "store_true")
 
     args = parser.parse_args ()
 
-    if (args.verbose):
-        verbosity = 1
-    elif (args.extra_verbose):
-        verbosity = 2
-    else:
-        verbosity = 0
-        
-    vvprint (f"Polling data model directory", verbosity)
+    logging.basicConfig (level = args.log_level)
+            
+    logging.debug (f"Polling data model directory")
     root_dir = ir.files (dm)
-    vvprint (f"Data model working directory is: {root_dir}", verbosity)
+    logging.debug (f"Data model working directory is: {root_dir}")
     yaml_sch = f"src/model/{args.data_model}.yaml"
-    vvprint (f"Data model path is: {yaml_sch}", verbosity)
+    logging.debug (f"Data model path is: {yaml_sch}")
     
     data_model_path = root_dir / yaml_sch
     data_model = str (data_model_path)
 
-    if (args.shim):
-        conversion_shim (args.schema)
-
-    else:
-        manifest_wrapper (data           = args.csvfile
+    manifest_wrapper (data           = args.csvfile
                     , schema         = args.schema
                     , data_model     = data_model
                     , manifest       = args.manifest
                     , manifest_title = "saved_job_default"
                     , validate       = not args.no_validate
-                    , table_class    = args.table_class
-                    , verbosity      = verbosity)
+                    , table_class    = args.table_class)

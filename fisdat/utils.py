@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from linkml.utils.schemaloader import SchemaLoader
+import logging
 from pathlib         import PurePath
 
 def fst(g):
@@ -10,18 +11,6 @@ def fst(g):
     for e in g:
         return e
     raise Exception("Generator is empty")
-
-def vprint (message : str, verbosity : int) -> None:
-    '''
-    Verbosity is passed in as 0, 1, or 2, print the message
-    if it is non-zero.
-    '''
-    if (verbosity > 0):
-        print (message)
-
-def vvprint (message : str, verbosity : int) -> None:
-    if (verbosity == 2):
-        print (message)
         
 def extension_helper (target_path : PurePath) -> str:
     '''
@@ -34,13 +23,13 @@ def extension_helper (target_path : PurePath) -> str:
     else:
         return (target_path.suffix [1 : len (target_path.suffix)])
 
-def conversion_shim (schema : str, verbosity : bool) -> dict [str, str]:
+def conversion_shim (schema : str) -> dict [str, str]:
     """
     A shim which serialises the schema proper, to extract components of
     interest, so that they can be serialised in the manifest `tables'
     section.
     """
-    vvprint (f"Calling `conversion_shim (schema = {schema})'", verbosity)
+    logging.debug (f"Calling `conversion_shim (schema = {schema})'")
     schema_obj = SchemaLoader (schema).schema
     properties = {
         "title":       schema_obj.title
@@ -50,7 +39,7 @@ def conversion_shim (schema : str, verbosity : bool) -> dict [str, str]:
       , "license":     schema_obj.license
       , "keywords":    schema_obj.keywords
     }
-    vvprint (f"Extracted schema properties: {properties}", verbosity)
+    logging.debug (f"Extracted schema properties: {properties}")
     return (properties)
 
 def take (iter : Iterable, n : int, ini : int = 0) -> Iterable:
