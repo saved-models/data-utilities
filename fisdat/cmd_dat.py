@@ -3,14 +3,15 @@ from linkml.utils.datautils          import _get_context, _get_format, get_dumpe
 from linkml.utils.schema_builder     import SchemaBuilder
 from linkml.validator                import validate_file
 from linkml.validator.report         import Severity, ValidationResult, ValidationReport
-from linkml_runtime.loaders          import YAMLLoader
+from linkml_runtime.dumpers          import RDFLibDumper, YAMLDumper
+from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
 from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
 import argparse
 from hashlib import sha384
 from os.path import isfile
 from pathlib import Path, PurePath
-import tempfile
+import inspect
 import logging
 
 from fisdat import __version__, __commit__
@@ -61,7 +62,8 @@ def validate_wrapper (data         : str
 
 def dump_wrapper (py_obj
                 , data_model_view : SchemaView
-                , output_path     : PurePath) -> bool:
+                , output_path     : PurePath
+                , mode            : str) -> bool:
     '''
     Given a Python object to serialise, and a SchemaView object derived
     from the data model, serialise RDF.
@@ -74,27 +76,42 @@ def dump_wrapper (py_obj
     There was strange behaviour when calling RDFDumper.dumper directly,
     which is why it's not called directly.
     '''
-    logging.debug (f"Called `dump_wrapper (py_obj = {py_obj}, data_model_view = {SchemaView}, output_path = {str(output_path)})'")
+    logging.debug (f"Called `dump_wrapper (py_obj = {py_obj}, data_model_view = {SchemaView}, output_path = {str(output_path)}, mode = {mode})'")
     
     output_path_abs = str (output_path.name)
     output_path_ext = extension_helper (output_path)
 
-    if (output_path_ext != "rdf" and output_path_ext != "ttl"):
-        logging.info (f"Warning: target extension has a .{output_path_ext} extension, but will actually be serialised as RDF/TTL")
-    
-    formatter = _get_format (output_path_abs, "rdf")
-    dumper    = get_dumper  (formatter)
+    if (mode == "rdf_ttl_manifest"):
+        if (output_path_ext != "rdf" and output_path_ext != "ttl"):
+            logging.info (f"Warning: target extension has a .{output_path_ext} extension, but will actually be serialised as RDF/TTL")
+        dumper = RDFLibDumper ()
+        
+        logging.info (f"Dumping Python object to {output_path_abs}")
+        dumper.dump (py_obj, output_path_abs, schemaview = data_model_view)
 
-    logging.info (f"Dumping Python object to {output_path_abs}")
-    dumper.dump (py_obj, output_path_abs, schemaview = data_model_view)
-    return (True)
+        return (True)            
+        
+    elif (mode == "yaml_template"):
+        if (output_path_ext != "yaml" and output_path_ext != "yml"):
+            logging.info (f"Warning: target extension has a .{output_path_ext} extension, but will actually be serialised as YAML")
+        dumper = YAMLDumper ()
+        
+        logging.info (f"Dumping Python object to {output_path_abs}")
+        dumper.dump (py_obj, output_path_abs)
+
+        return (True)
+    
+    else:
+        print ("Unrecognised mode for `dump_wrapper()', cannot dump object")
+        return (False)
 
 def append_job_manifest (data           : str
                        , schema         : str
                        , data_model     : str
                        , manifest       : str
                        , manifest_title : str
-                       , mode           : str) -> bool:
+                       , mode           : str
+                       , example_job    : bool) -> bool:
     '''
     Given a data file, a file schema, and the parent data model, build
     up a Python object which can be serialised to RDF.
@@ -102,7 +119,7 @@ def append_job_manifest (data           : str
     are ncessary when serialising JSON-LD and RDF. It can point to
     job.yaml or the meta-model which pulls it in at the top-level.
     '''
-    logging.debug (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, manifest_title = {manifest_title}, mode = {mode})")
+    logging.debug (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, manifest_title = {manifest_title}, mode = {mode})'")
     
     data_model_path = PurePath (data_model)
     manifest_path   = PurePath (manifest)
@@ -125,34 +142,66 @@ def append_job_manifest (data           : str
 
     schema_properties = conversion_shim (schema)
     
-    # We've already got the schema, now add the data
-    #staging_table = py_data_model_module.TableDesc (path        = data_path.name
-    #                                              , schema_path = schema_path.name
-    #                                              , hash        = data_hash)
+    logging.info ("Generating base job description")
+    target_set_atomic = schema_properties ["atomic_name"]
+    staging_example_job = py_data_model_module.JobDesc (
+        title             = f"Empty job template for {target_set_atomic}"
+      , atomic_name       = f"job_empty_{target_set_atomic}" # The test job draws from 
+      , job_type          = 'ignore'
+      , job_auto_generate = True
+      , job_sources       = py_data_model_module.SourceDesc (
+          atomic_name = target_set_atomic
+        , scope       = ['test_col_0', 'test_col_1', 'test_col_2']
+      )
+    )
+    staging_empty_job = py_data_model_module.JobDesc (
+        title             = ''
+      , atomic_name       = ''
+      , job_type          = 'ignore'
+      , job_auto_generate = False
+      , job_sources       = py_data_model_module.SourceDesc (
+          atomic_name = ''
+        , scope       = ['']
+      )
+    )
+    if (example_job):
+        staging_job = staging_example_job
+    else:
+        staging_job = staging_empty_job
+    
+    logging.info ("Generating base table description")
     staging_table = py_data_model_module.TableDesc (
-        title       = schema_properties["title"]
-      , atomic_name = schema_properties["atomic_name"]
-      , description = schema_properties["description"] # Partly for filling out a template, use this even empty
+        title       = schema_properties ["title"]
+      , atomic_name = schema_properties ["atomic_name"] # $target_set_atomic
+      , description = schema_properties ["description"] # Partly for filling out a template, use even empty
       , path        = data_path.name
       , schema_path = schema_path.name
       , hash        = data_hash
-      , scope       = []
+      , scope       = ['']
     )
+    logging.info ("Proceed with manifest initialise or append operation")
     
     if (mode == "initialise"):
         logging.info (f"Initialising manifest {manifest}")
-        manifest_skeleton = py_data_model_module.ManifestDesc (tables = staging_table)
+        manifest_skeleton = py_data_model_module.ManifestDesc (
+            tables        = staging_table
+          , jobs          = [staging_job]
+          , local_version = __version__
+        )
         result = dump_wrapper (py_obj          = manifest_skeleton
                              , data_model_view = py_data_model_view
-                             , output_path     = manifest_path)
+                             , output_path     = manifest_path
+                             , mode            = "rdf_ttl_manifest"  )
+        
         print (job_table (manifest_skeleton, manifest, preamble = True))
+
     else:
         logging.info (f"Reading existing manifest {manifest}")
-        target_class      = py_data_model_module.__dict__["ManifestDesc"]
-        loader            = get_loader  ("rdf")
-        original_manifest = loader.load (source       = manifest
-                                       , target_class = target_class
-                                       , schemaview   = py_data_model_view)
+        target_class     = py_data_model_module.ManifestDesc
+        loader           = get_loader  ("rdf")
+        staging_manifest = loader.load (source       = manifest
+                                      , target_class = target_class
+                                      , schemaview   = py_data_model_view)
 
         logging.info (f"Checking that data file {data} does not already exist in manifest")
         extant_data  = map (lambda k : PurePath (k.path).name, original_manifest.tables)
@@ -163,13 +212,27 @@ def append_job_manifest (data           : str
             result = not check_extant
         else:
             logging.info (f"Data-file {data} was not in manifest, adding")
-            staging_tables    = original_manifest.tables + [staging_table]
-            manifest_skeleton = py_data_model_module.ManifestDesc (tables = staging_tables)
-
-            result = dump_wrapper (py_obj          = manifest_skeleton
+            
+            # Don't bother adding an additional empty job here, since the 
+            # actual aim of creating the empty or example job in the
+            # initialisation stage is to make sure that the job field is
+            # minimally filled out.
+            # These fields are marked as required in `job.yaml', and
+            # we've just read in the manifest using that component of the
+            # data model as the manifest's *schema*. Therefore, it's safe
+            # to assume that they are filled out if we get this far.
+            # Further update the local utility version string to that of
+            # the most recent time we run it.
+            staging_manifest.tables.append (staging_table)
+            staging_manifest.local_version = __version__
+            
+            result = dump_wrapper (py_obj          = staging_manifest
                                  , data_model_view = py_data_model_view
-                                 , output_path     = manifest_path)
-            print (job_table (manifest_skeleton, manifest, preamble = True))
+                                 , output_path     = manifest_path
+                                 , mode            = "rdf_ttl_manifest")
+
+            print (job_table (original_manifest, manifest, preamble = True))
+            
     return (result)
 
 def manifest_wrapper (data           : str
@@ -178,7 +241,8 @@ def manifest_wrapper (data           : str
                     , manifest       : str
                     , manifest_title : str
                     , validate       : bool
-                    , table_class    : str) -> bool:
+                    , table_class    : str
+                    , example_job    : bool) -> bool:
     '''
     Simple wrapper for the two modes of `append_job_manifest' based on
     whether the manifest file exists (optional) and whether the schema
@@ -200,11 +264,11 @@ def manifest_wrapper (data           : str
             if (isfile (manifest)):
                 logging.info (f"Manifest exists, appending to manifest {manifest}")
                 result = append_job_manifest (data, schema, data_model, manifest
-                                            , manifest_title, "append")
+                                            , manifest_title, "append", example_job)
             else:
                 logging.info (f"Manifest does not exist, creating new manifest {manifest}")
                 result = append_job_manifest (data, schema, data_model, manifest
-                                            , manifest_title, "initialise")
+                                            , manifest_title, "initialise", example_job)
             return (result)
         else:
             '''
@@ -238,6 +302,9 @@ def cli () -> None:
     parser.add_argument ("--table-class"
                        , help    = "Name of LinkML class against which target file is validated"
                        , default = "TableSchema")
+    parser.add_argument ("--example-job"
+                       , help = "Fill out example job section when generating manifest"
+                       , action = "store_true")
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"
                        , required = False
@@ -250,7 +317,6 @@ def cli () -> None:
                        , action   = "store_const"
                        , dest     = "log_level"
                        , const    = logging.DEBUG)
-    parser.add_argument ("--shim", action = "store_true")
 
     args = parser.parse_args ()
 
@@ -265,10 +331,12 @@ def cli () -> None:
     data_model_path = root_dir / yaml_sch
     data_model = str (data_model_path)
 
+
     manifest_wrapper (data           = args.csvfile
                     , schema         = args.schema
                     , data_model     = data_model
                     , manifest       = args.manifest
                     , manifest_title = "saved_job_default"
                     , validate       = not args.no_validate
-                    , table_class    = args.table_class)
+                    , table_class    = args.table_class
+                    , example_job    = args.example_job)
