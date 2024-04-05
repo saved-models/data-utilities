@@ -1,5 +1,4 @@
 from linkml.generators.pythongen     import PythonGenerator
-from linkml.utils.datautils          import _get_context, _get_format, get_dumper, get_loader
 from linkml.utils.schema_builder     import SchemaBuilder
 from linkml.validator                import validate_file
 from linkml.validator.report         import Severity, ValidationResult, ValidationReport
@@ -198,13 +197,13 @@ def append_job_manifest (data           : str
     else:
         logging.info (f"Reading existing manifest {manifest}")
         target_class     = py_data_model_module.ManifestDesc
-        loader           = get_loader  ("rdf")
+        loader           = RDFLibLoader ()
         staging_manifest = loader.load (source       = manifest
                                       , target_class = target_class
                                       , schemaview   = py_data_model_view)
 
         logging.info (f"Checking that data file {data} does not already exist in manifest")
-        extant_data  = map (lambda k : PurePath (k.path).name, original_manifest.tables)
+        extant_data  = map (lambda k : PurePath (k.path).name, staging_manifest.tables)
         check_extant = data_path.name in extant_data
         
         if (check_extant):
@@ -231,7 +230,7 @@ def append_job_manifest (data           : str
                                  , output_path     = manifest_path
                                  , mode            = "rdf_ttl_manifest")
 
-            print (job_table (original_manifest, manifest, preamble = True))
+            print (job_table (staging_manifest, manifest, preamble = True))
             
     return (result)
 

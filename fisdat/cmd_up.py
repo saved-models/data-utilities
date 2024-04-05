@@ -14,10 +14,10 @@ import time
 import uuid
 
 from linkml.generators.pythongen     import PythonGenerator
-from linkml.utils.datautils          import _get_context, _get_format, get_dumper, get_loader
 from linkml.utils.schema_builder     import SchemaBuilder
 from linkml.validator                import validate_file
 from linkml.validator.report         import Severity, ValidationResult, ValidationReport
+from linkml_runtime.loaders          import RDFLibLoader
 from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
 from fisdat import __version__, __commit__
@@ -105,7 +105,7 @@ def load_manifest (data_model_path : PurePath, manifest_path : PurePath):
         logging.info (f"Warning: target extension has a .{manifest_ext} extension, but will actually be serialised as RDF/TTL")
 
     target_class      = py_data_model_module.__dict__["ManifestDesc"]
-    loader            = get_loader  ("rdf")
+    loader            = RDFLibLoader ()
     original_manifest = loader.load (source       = manifest
                                    , target_class = target_class
                                    , schemaview   = py_data_model_view)
