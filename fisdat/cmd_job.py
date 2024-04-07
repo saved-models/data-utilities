@@ -44,7 +44,7 @@ def manifest_to_template (manifest   : str
     
 def template_to_manifest (template   : str
                         , manifest   : str
-                        , data_model : str) -> str:
+                        , data_model : str) -> bool:
     '''
     Generate a turtle manifest from an editable template
     '''
@@ -110,7 +110,8 @@ def cli () -> None:
                        , const    = logging.DEBUG)
     
     args = parser.parse_args ()
-    logging.basicConfig (level = args.log_level)
+    logging.basicConfig (level  = args.log_level
+                       , format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'")
 
     logging.debug (f"Polling data model directory")
     root_dir = ir.files (dm)

@@ -274,7 +274,8 @@ def cli () -> None:
 
     args = parser.parse_args ()
 
-    logging.basicConfig (level = args.log_level)
+    logging.basicConfig (level  = args.log_level
+                       , format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'")
 
     logging.debug (f"Columns selected to bring into job scope are f{args.job_scope}")
     

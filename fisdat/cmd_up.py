@@ -153,7 +153,8 @@ def cli () -> None:
                        , const    = logging.DEBUG)
     args = parser.parse_args ()
     
-    logging.basicConfig (level = args.log_level)
+    logging.basicConfig (level  = args.log_level
+                       , format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'")
     
     # Need this to pass verbosity= into source()
     if (args.source is None):
