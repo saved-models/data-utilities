@@ -2,18 +2,18 @@ import argparse
 from os.path import isfile
 import logging
 
-from linkml.generators.pythongen     import PythonGenerator
-from linkml_runtime.loaders import RDFLibLoader, YAMLLoader
-from linkml_runtime.dumpers import YAMLDumper  , RDFLibDumper
+from linkml.generators.pythongen import PythonGenerator
+from linkml_runtime.loaders      import RDFLibLoader, YAMLLoader
+from linkml_runtime.dumpers      import YAMLDumper  , RDFLibDumper
 
 from fisdat import __version__, __commit__
 from fisdat.utils import validation_helper
 from importlib import resources as ir
 from . import data_model as dm
 
-def to_template (manifest   : str
-               , template   : str
-               , data_model : str) -> str:
+def manifest_to_template (manifest   : str
+                        , template   : str
+                        , data_model : str) -> str:
     '''
     Generate an editable template from a turtle manifest
     '''
@@ -42,9 +42,9 @@ def to_template (manifest   : str
 
     return (template)
     
-def from_template (manifest   : str
-                 , template   : str
-                 , data_model : str) -> str:
+def template_to_manifest (template   : str
+                        , manifest   : str
+                        , data_model : str) -> str:
     '''
     Generate a turtle manifest from an editable template
     '''
@@ -78,13 +78,24 @@ def cli () -> None:
     
     parser = argparse.ArgumentParser ("fisjob")
     verbgr = parser.add_mutually_exclusive_group (required = False)
-    parser.add_argument ("mode"    , help = "mode"
-                       , type = str, choices = ["from-template", "to-template"])
-    parser.add_argument ("manifest", help = "Manifest file/URI (RDF/TTL)" , type = str)
-    parser.add_argument ("template", help = "Template file/URI (YAML)", type = str)
+    
+    parser.add_argument ("mode"
+                       , type = str
+                       , choices = ["manifest-to-template", "to-template"
+                                  , "template-to-manifest", "to-manifest"]
+                       , help = "Select mode: conversion from RDF/TTL job manifest to editable YAML template, or vice versa")
+    parser.add_argument ("input"
+                       , help = "Conversion input (must exist)"
+                         , type = str)
+    parser.add_argument ("output"
+                       , help = "Conversion output (will not overwrite by default)"
+                         , type = str)
     parser.add_argument ("--data-model"
                        , help    = "Data model YAML specification in fisdat/data_model/src/model"
                        , default = "job")
+    parser.add_argument ("--force", "-f"
+                       , help = "If output file exists, overwrite it"
+                       , action = "store_true")
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"
                        , required = False
@@ -108,25 +119,34 @@ def cli () -> None:
     logging.debug (f"Data model path is: {yaml_sch}")
     
     data_model_path = root_dir / yaml_sch
-    data_model = str (data_model_path)
+    data_model      = str (data_model_path)
+    
+    if (args.mode == "manifest-to-template" or args.mode == "to-template"):
+        
+        print (f"Converting RDF/TTL job manifest {args.input} to editable YAML template {args.output}")
 
-    if (args.mode == "to-template"):
-        logging.info ("Selected mode is conversion from RDF/TTL job manifest to editable YAML template")
-        if (not (isfile (args.manifest))):
-            print (f"Manifest file {args.manifest} does not exist!")
+        if (not (isfile (args.input))):
+            print (f"Input RDF/TTL job manifest {args.input} does not exist!")
+        elif (isfile (args.output) and not (args.force)):
+            print (f"Output editable YAML template {args.output} already exists. Overwrite by passing the -f flag.")
         else:
-            res = to_template (manifest   = args.manifest
-                             , template   = args.template
-                             , data_model = data_model)
-            print (f"Converted RDF/TTL job manifest {args.manifest} to editable YAML template {res}")
+            res_fp = manifest_to_template (manifest   = args.input
+                                         , template   = args.output
+                                         , data_model = data_model)
+
+            print (f"Converted RDF/TTL job manifest {args.input} to editable YAML template {res_fp}")
+            
     else:
-        logging.info ("Selected mode is conversion from editable YAML template to RDF/TTL job manifest")
-        if (not (isfile (args.template))):
-            print (f"Template file {args.template} does not exist!")
+        print (f"Converting editable YAML template {args.input} to RDF/TTL job manifest {args.output}")
+        
+        if (not (isfile (args.input))):
+            print (f"Input editable YAML template {args.input} does not exist!")
+        elif (isfile (args.output) and not (args.force)):
+            print (f"Output RDF/TTL manifest {args.output} already exists. Overwrite by passing the -f flag.")
         else:
-            res = from_template (manifest   = args.manifest
-                               , template   = args.template
-                               , data_model = data_model)
-            if (res):
-                print (f"Converted editable YAML template {args.template} to RDF/TTL job manifest {args.manifest}")
+            res_bool = template_to_manifest (template   = args.input
+                                           , manifest   = args.output
+                                           , data_model = data_model)
+            if (res_bool):
+                print (f"Converted RDF/TTL job manifest {args.input} to editable YAML template {args.input}")
         
