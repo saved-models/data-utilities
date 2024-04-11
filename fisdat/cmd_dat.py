@@ -44,7 +44,8 @@ def dump_wrapper (py_obj
         dumper = RDFLibDumper ()
         
         logging.info (f"Dumping Python object to {output_path_abs}")
-        dumper.dump (py_obj, output_path_abs, schemaview = data_model_view)
+        # Hard-coded at the moment, need to fix this
+        dumper.dump (py_obj, output_path_abs, schemaview = data_model_view, prefix_map={"@base": "http://localhost/saved/"})
 
         return (True)            
         
@@ -133,7 +134,8 @@ def append_job_manifest (data           : str
     if (mode == "initialise"):
         logging.info (f"Initialising manifest {manifest}")
         manifest_skeleton = py_data_model_module.ManifestDesc (
-            tables        = staging_table
+            atomic_name   = manifest_title
+          , tables        = staging_table
           , jobs          = [initial_example_job]
           , local_version = __version__
         )
@@ -151,6 +153,7 @@ def append_job_manifest (data           : str
         staging_manifest = loader.load (source       = manifest
                                       , target_class = target_class
                                       , schemaview   = py_data_model_view)
+#                                      , prefix_map={"@base": "http://localhost/saved/"})
 
         logging.info (f"Checking that data file {data} does not already exist in manifest")
         extant_data  = map (lambda k : PurePath (k.path).name, staging_manifest.tables)
@@ -258,6 +261,9 @@ def cli () -> None:
                        , metavar  = 'COL'
                        , nargs    = '+'
                        , default  = [])
+    parser.add_argument ("--manifest-title"
+                       , help     = "Name of the manifest title root"
+                       , default  = "RootManifest")
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"
                        , required = False
@@ -292,7 +298,7 @@ def cli () -> None:
                     , schema         = args.schema
                     , data_model     = data_model
                     , manifest       = args.manifest
-                    , manifest_title = "saved_job_default"
+                    , manifest_title = args.manifest_title
                     , validate       = not args.no_validate
                     , table_class    = args.table_class
                     , scoped_columns = args.job_scope)
