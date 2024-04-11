@@ -34,7 +34,7 @@ fisup = "fisdat.cmd_up:cli"
 version = {attr = "fisdat.__version__"}
 
 [tool.setuptools]
-packages = ["fisdat"]
+packages = ["fisdat", "fisdat.data_model"]
 
 [tool.versioneer]
 VCS = "git"
