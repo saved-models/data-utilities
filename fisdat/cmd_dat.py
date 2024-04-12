@@ -108,41 +108,47 @@ def append_job_manifest (data           : str
     else:
         target_set_columns = scoped_columns
     
-    initial_example_job = py_data_model_module.JobDesc (
-        title             = f"Empty job template for {target_set_atomic}"
-      , atomic_name       = f"job_empty_{target_set_atomic}" # The test job draws from 
-      , job_type          = 'ignore'
-      , job_auto_generate = True
-      , job_sources       = py_data_model_module.SourceDesc (
-          atomic_name = target_set_atomic
-        , scope       = target_set_columns
-      )
-    )
-    
     logging.info ("Generating base table description")
     staging_table = py_data_model_module.TableDesc (
-        title       = schema_properties ["title"]
-      , atomic_name = target_set_atomic
-      , description = schema_properties ["description"] # Partly for filling out a template, use even empty
+        atomic_name = target_set_atomic
+      , title       = schema_properties ["title"]
+      #, description = schema_properties ["description"] # Partly for filling out a template, use even empty
       , path        = data_path.name
       , schema_path = schema_path.name
       , hash        = data_hash
       , scope       = target_set_columns
     )
-    logging.info ("Proceed with manifest initialise or append operation")
+    logging.debug (f"Base table description is `{staging_table}'. Its nominal type is `{type(staging_table)}'")
+    logging.info ("Generating base example source description")
+    initial_example_source = py_data_model_module.SourceDesc (
+        atomic_name = "source_" + target_set_atomic
+      , scope       = target_set_columns
+    )
+    logging.debug (f"Base example source description is `{initial_example_source}'. Its nominal type is `{type(initial_example_source)}'")
+    logging.info ("Generating base example job description")
+    initial_example_job = py_data_model_module.JobDesc (
+        title         = f"Empty job template for {target_set_atomic}"
+      , atomic_name   = f"job_empty_{target_set_atomic}" # The test job draws from 
+      , type          = "ignore"
+      , auto_generate = True
+      , sources       = [] # Seems to get coerced to string otherwise?!
+    )
+    initial_example_job.sources.append (initial_example_source)
+    logging.debug (f"Base example job description is `{initial_example_job}'. Its nominal type is {type(initial_example_job)}")
+    logging.info ("Proceeding with manifest initialise or append operation")
     
     if (mode == "initialise"):
         logging.info (f"Initialising manifest {manifest}")
         manifest_skeleton = py_data_model_module.ManifestDesc (
             atomic_name   = manifest_title
-          , tables        = staging_table
+          , tables        = [staging_table]
           , jobs          = [initial_example_job]
           , local_version = __version__
         )
         result = dump_wrapper (py_obj          = manifest_skeleton
                              , data_model_view = py_data_model_view
                              , output_path     = manifest_path
-                             , mode            = "rdf_ttl_manifest"  )
+                             , mode            = "rdf_ttl_manifest")
         
         print (job_table (manifest_skeleton, manifest, preamble = True))
 
