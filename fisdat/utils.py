@@ -108,7 +108,7 @@ def job_table (dataclass
     to show a really simple JSON object in a table!
     '''
     tables       = dataclass.tables
-    tuples       = [(k.path, k.schema_path, k.hash) for k in tables]
+    tuples       = [(k.resource_path, k.schema_path, k.resource_hash) for k in tables]
     tuples_extra = tuples + [col_names] # Potentially adjust column lengths
     
     file_len = max ([len (p[0]) for p in tuples_extra])

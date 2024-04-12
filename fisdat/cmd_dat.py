@@ -110,13 +110,13 @@ def append_job_manifest (data           : str
     
     logging.info ("Generating base table description")
     staging_table = py_data_model_module.TableDesc (
-        atomic_name = target_set_atomic
-      , title       = schema_properties ["title"]
-      #, description = schema_properties ["description"] # Partly for filling out a template, use even empty
-      , path        = data_path.name
-      , schema_path = schema_path.name
-      , hash        = data_hash
-      , scope       = target_set_columns
+        atomic_name   = target_set_atomic
+      , title         = schema_properties ["title"]
+      , description   = schema_properties ["description"] # Partly for filling out a template, use even empty
+      , resource_path = data_path.name
+      , schema_path   = schema_path.name
+      , resource_hash = data_hash
+      , scope         = target_set_columns
     )
     logging.debug (f"Base table description is `{staging_table}'. Its nominal type is `{type(staging_table)}'")
     logging.info ("Generating base example source description")
@@ -127,11 +127,11 @@ def append_job_manifest (data           : str
     logging.debug (f"Base example source description is `{initial_example_source}'. Its nominal type is `{type(initial_example_source)}'")
     logging.info ("Generating base example job description")
     initial_example_job = py_data_model_module.JobDesc (
-        title         = f"Empty job template for {target_set_atomic}"
-      , atomic_name   = f"job_example_{target_set_atomic}" # The test job draws from 
-      , type          = "ignore"
-      , auto_generate = True
-      , sources       = [initial_example_source]
+        title             = f"Empty job template for {target_set_atomic}"
+      , atomic_name       = f"job_example_{target_set_atomic}" # The test job draws from 
+      , job_type          = "ignore"
+      , job_auto_generate = True
+      , job_sources       = [initial_example_source]
     )
     logging.debug (f"Base example job description is `{initial_example_job}'. Its nominal type is {type(initial_example_job)}")
     
@@ -161,7 +161,7 @@ def append_job_manifest (data           : str
 #                                      , prefix_map={"@base": "http://localhost/saved/"})
 
         logging.info (f"Checking that data file {data} does not already exist in manifest")
-        extant_data  = map (lambda k : PurePath (k.path).name, staging_manifest.tables)
+        extant_data  = map (lambda k : PurePath (k.resource_path).name, staging_manifest.tables)
         check_extant = data_path.name in extant_data
         
         if (check_extant):
