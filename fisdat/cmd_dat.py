@@ -122,6 +122,7 @@ def append_job_manifest (data           : str
     logging.info ("Generating base example source description")
     initial_example_source = py_data_model_module.SourceDesc (
         atomic_name = "source_example_" + target_set_atomic
+      , table       = target_set_atomic  
       , scope       = target_set_columns
     )
     logging.debug (f"Base example source description is `{initial_example_source}'. Its nominal type is `{type(initial_example_source)}'")
