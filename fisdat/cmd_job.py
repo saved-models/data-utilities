@@ -1,15 +1,16 @@
 import argparse
-from os.path import isfile
+from itertools  import chain
+from os.path    import isfile
 import logging
 
 from linkml.generators.pythongen import PythonGenerator
 from linkml_runtime.loaders      import RDFLibLoader, YAMLLoader
 from linkml_runtime.dumpers      import YAMLDumper  , RDFLibDumper
 
-from fisdat import __version__, __commit__
-from fisdat.utils import validation_helper
-from importlib import resources as ir
-from . import data_model as dm
+from fisdat       import __version__, __commit__
+from fisdat.utils import malformed_id_helper, validation_helper
+from importlib    import resources as ir
+from .            import data_model as dm
 
 def manifest_to_template (manifest   : str
                         , template   : str
@@ -47,9 +48,26 @@ def template_to_manifest (template   : str
                         , data_model : str) -> bool:
     '''
     Generate a turtle manifest from an editable template
+
+    While the LinkML validation functions + command-line tools don't seem
+    to trip up up on duplicate identifiers, the conversion scripts do. In
+    this function, this would concern the call to the loader's `load()'
+    method.
+
+    Unfortunately, while the conversion script will accept keys *without
+    a prefix* as different from keys *with a prefix*, it considers the
+    former to be equivalent to an identifier with the prefix, but does
+    not throw an error!
+
+    For example, a table description with the identifier (`atomic_name')
+    `sampling' is equivalent to `saved:sampling', and this will be
+    serialised back to turtle silently dropping all duplicates excepting
+    the first.
     '''
     logging.debug (f"Called `template_to_manifest (manifest = {manifest}, template = {template}, data_model = {data_model})'")
-    validation_test = validation_helper (data = template, schema = data_model, target_class = "ManifestDesc")
+    validation_test = validation_helper (data         = template
+                                       , schema       = data_model
+                                       , target_class = "ManifestDesc")
     
     if (validation_test):
         # PythonGenerator seems to spit out WARNING messages regardless of log_level
@@ -66,11 +84,12 @@ def template_to_manifest (template   : str
         dumper = RDFLibDumper ()
 
         logging.info ("Loading template file")
-        staging_template = loader.load (source = template
+        staging_template = loader.load (source       = template
                                       , target_class = target_class)
 
         logging.info (f"Dumping template to {manifest}")
-        dumper.dump (staging_template, manifest, schemaview = py_data_model_view)
+        dumper.dump (staging_template, manifest, schemaview = py_data_model_view
+                   , prefix_map={"_base": "http://localhost/saved/"})
     return (validation_test)
 
 def cli () -> None:

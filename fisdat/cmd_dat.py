@@ -45,7 +45,7 @@ def dump_wrapper (py_obj
         
         logging.info (f"Dumping Python object to {output_path_abs}")
         # Hard-coded at the moment, need to fix this
-        dumper.dump (py_obj, output_path_abs, schemaview = data_model_view, prefix_map={"@base": "http://localhost/saved/"})
+        dumper.dump (py_obj, output_path_abs, schemaview = data_model_view, prefix_map={"_base": "http://localhost/saved/"})
 
         return (True)            
         
@@ -154,16 +154,18 @@ def append_job_manifest (data           : str
 
     else:
         logging.info (f"Reading existing manifest {manifest}")
-        target_class     = py_data_model_module.ManifestDesc
-        loader           = RDFLibLoader ()
-        staging_manifest = loader.load (source       = manifest
+        target_class    = py_data_model_module.ManifestDesc
+        loader          = RDFLibLoader ()
+        extant_manifest = loader.load (source       = manifest
                                       , target_class = target_class
                                       , schemaview   = py_data_model_view)
-#                                      , prefix_map={"@base": "http://localhost/saved/"})
+        #, prefix_map={"_base": "http://localhost/saved/"})
 
         logging.info (f"Checking that data file {data} does not already exist in manifest")
-        extant_data  = map (lambda k : PurePath (k.resource_path).name, staging_manifest.tables)
-        check_extant = data_path.name in extant_data
+        extant_paths = map (lambda k : PurePath (k.resource_path).name, extant_manifest.tables)
+        extant_names = map (lambda k : k.atomic_name                  , extant_manifest.tables)
+        check_extant_paths = data_path.name            in extant_paths
+        check_extant_names = staging_table.atomic_name in extant_names
         
         if (check_extant):
             print (f"Data-file {data} was already in the table, cannot add!")
@@ -181,6 +183,13 @@ def append_job_manifest (data           : str
             # to assume that they are filled out if we get this far.
             # Further update the local utility version string to that of
             # the most recent time we run it.
+            # Copy the loaded `extant_manifest' into a new object to work
+            # on. This is not particularly important at the moment but
+            # does aid debugging and makes clear that we're not writing
+            # the original object back, especially if we make more
+            # changes than appending to the table and updating the local
+            # version string.
+            staging_manifest = extant_manifest
             staging_manifest.tables.append (staging_table)
             staging_manifest.local_version = __version__
             
