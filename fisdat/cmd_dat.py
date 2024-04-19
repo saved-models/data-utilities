@@ -5,17 +5,17 @@ from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
 from linkml_runtime.utils.schemaview import SchemaView
 
 import argparse
-from hashlib import sha384
-from os.path import isfile
-from pathlib import Path, PurePath
+from hashlib    import sha384
+from os.path    import isfile
+from pathlib    import Path, PurePath
 import inspect
 import logging
 
-from fisdat import __version__, __commit__
-from fisdat.utils import fst, error, extension_helper, job_table, schema_components_helper, take, validation_helper
+from fisdat       import __version__, __commit__
+from fisdat.utils import fst, error, extension_helper, job_table, malformed_id_helper, schema_components_helper, take, validation_helper
 from fisdat.ns    import CSVW
-from importlib import resources as ir
-from . import data_model as dm
+from importlib    import resources as ir
+from .            import data_model as dm
 
 def dump_wrapper (py_obj
                 , data_model_view : SchemaView
@@ -119,25 +119,17 @@ def append_job_manifest (data           : str
       , scope         = target_set_columns
     )
     logging.debug (f"Base table description is `{staging_table}'. Its nominal type is `{type(staging_table)}'")
-    logging.info ("Generating base example source description")
-    initial_example_source = py_data_model_module.SourceDesc (
-        atomic_name = "source_example_" + target_set_atomic
-      , table       = target_set_atomic  
-      , scope       = target_set_columns
-    )
-    logging.debug (f"Base example source description is `{initial_example_source}'. Its nominal type is `{type(initial_example_source)}'")
+
     logging.info ("Generating base example job description")
-    initial_example_job = py_data_model_module.JobDesc (
+    initial_example_job = py_data_model_module.JobDummy (
         title             = f"Empty job template for {target_set_atomic}"
       , atomic_name       = f"job_example_{target_set_atomic}" # The test job draws from 
-      , job_type          = "ignore"
-      , job_auto_generate = True
-      , job_sources       = [initial_example_source]
+      , columns           = target_set_columns
     )
     logging.debug (f"Base example job description is `{initial_example_job}'. Its nominal type is {type(initial_example_job)}")
     
     logging.info ("Proceeding with manifest initialise or append operation")
-    if (mode == "initialise"):
+    if (mode == "initialise"):        
         logging.info (f"Initialising manifest {manifest}")
         manifest_skeleton = py_data_model_module.ManifestDesc (
             atomic_name   = manifest_title
@@ -162,14 +154,13 @@ def append_job_manifest (data           : str
         #, prefix_map={"_base": "http://localhost/saved/"})
 
         logging.info (f"Checking that data file {data} does not already exist in manifest")
-        extant_paths = map (lambda k : PurePath (k.resource_path).name, extant_manifest.tables)
-        extant_names = map (lambda k : k.atomic_name                  , extant_manifest.tables)
-        check_extant_paths = data_path.name            in extant_paths
-        check_extant_names = staging_table.atomic_name in extant_names
+        extant_paths      = map (lambda k : PurePath (k.resource_path).name, extant_manifest.tables)
+        check_extant_path = data_path.name in extant_paths
+        check_extant_name = not (malformed_id_helper (extant_manifest, staging_table.atomic_name))
         
-        if (check_extant):
+        if (check_extant_path and check_extant_name):
             print (f"Data-file {data} was already in the table, cannot add!")
-            result = not check_extant
+            result = (not check_extant_path) and (not check_extant_name)
         else:
             logging.info (f"Data-file {data} was not in manifest, adding")
             

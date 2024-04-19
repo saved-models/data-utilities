@@ -153,8 +153,8 @@ def cli () -> None:
             res_fp = manifest_to_template (manifest   = args.input
                                          , template   = args.output
                                          , data_model = data_model)
-
-            print (f"Converted RDF/TTL job manifest {args.input} to editable YAML template {res_fp}")
+            
+            print (f"Converted RDF/TTL job manifest {args.input} to editable YAML template {args.output}")
             
     else:
         print (f"Converting editable YAML template {args.input} to RDF/TTL job manifest {args.output}")
@@ -168,5 +168,4 @@ def cli () -> None:
                                            , manifest   = args.output
                                            , data_model = data_model)
             if (res_bool):
-                print (f"Converted RDF/TTL job manifest {args.input} to editable YAML template {args.input}")
-        
+                print (f"Converted editable YAML template {args.input} to RDF/TTL job manifest {args.output}")        
