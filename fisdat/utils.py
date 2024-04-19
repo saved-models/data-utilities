@@ -1,15 +1,17 @@
 from collections.abc           import Iterable
+from itertools                 import chain
 from linkml.utils.schemaloader import SchemaLoader
 from linkml.validator          import validate_file
 import logging
 from os.path import isfile
 from pathlib import PurePath
+import re
 
 def fst(g):
-    """
+    '''
     Utility function. RDFLib gives generators all over the place and
     usually we just want a single value.
-    """
+    '''
     for e in g:
         return e
     raise Exception("Generator is empty")
@@ -66,11 +68,11 @@ def extension_helper (target_path : PurePath) -> str:
         return (target_path.suffix [1 : len (target_path.suffix)])
 
 def schema_components_helper (schema : str) -> dict [str, str]:
-    """
+    '''
     A shim which serialises the schema proper, to extract components of
     interest, so that they can be serialised in the manifest `tables'
     section.
-    """
+    '''
     logging.debug (f"Calling `conversion_shim (schema = {schema})'")
     schema_obj = SchemaLoader (schema).schema
     
@@ -88,6 +90,53 @@ def schema_components_helper (schema : str) -> dict [str, str]:
     
     logging.debug (f"Extracted schema properties: {properties}")
     return (properties)
+
+def malformed_id_helper (manifest_obj
+                       , new_identifier : str
+                       , base_prefix    : str = "saved") -> (str, str):
+    '''
+    Peer into the manifest structure to get all atoms in the description
+
+    Whereas they appear as triples at the top level in turtle or NT,
+    when reading programmaticaly, they are associated with the class
+    instance's position in the [nested] directory structure.
+
+    For example, a given set of job 'sources' are a list associated with
+    a job, which is itself part of a list of jobs in the manifest root.
+
+    Prints an error message and returns true/false.
+    '''
+    root_identifier    = manifest_obj.atomic_name
+    table_identifiers  = [tab.atomic_name for tab in some_manifest.tables]
+    job_pairs          = [(job.atomic_name, job.job_sources) for job in some_manifest.jobs]
+    job_identifiers    = [jp[0] for jp in job_pairs]
+    sources            = [jp[1] for jp in job_pairs]
+    source_identifiers = [src.atomic_name for src in chain (*sources)]
+    
+    all_identifiers = [[root_identifier]
+                      , table_identifiers
+                      , job_identifiers
+                      , source_identifiers]
+    
+    regexp     = re.compile (f"^{base_prefix}:([A-z|0-9|_]+)$")
+    regexp_spc = re.compile (f".*:.*")
+    normalise = lambda a : re.sub (regexp, "\\1", a)
+        
+    flattened = list (map (normalise, chain (*all_identifiers)))
+    
+    norm_identifier = normalise (new_identifier)
+
+    if (norm_identifier == new_identifier):
+        logging.info ("Identifier was NOT in expected `prefix:identifier' form")
+    else:
+        logging.info ("Identifier was in expected form")
+
+    if (norm_identifier in flattened):
+        logger.info (f"Normalised identifier {norm_identifier} was present in extant top-level identifiers {flattened}, cannot add")
+        return (True)
+    else:
+        logging.info (f"Normalised identifier {norm_identifier} was not present in extant top-level identifiers {flattened}, may add")
+        return False
 
 def take (iter : Iterable, n : int, ini : int = 0) -> Iterable:
     '''
