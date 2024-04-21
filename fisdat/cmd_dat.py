@@ -103,10 +103,15 @@ def append_job_manifest (data           : str
     logging.info ("Generating base job description")
     target_set_atomic = schema_properties ["atomic_name"]
 
+    gen_dummy_column = lambda col : py_data_model_module.ColumnDesc (
+        column       = col
+      , variable     = "some_ignored_var"
+      , table        = target_set_atomic
+    )
     if (len (scoped_columns) == 0):
-        target_set_columns = schema_properties ["columns"]
+        target_set_columns = list (map (gen_dummy_column, schema_properties ["columns"]))[:3]
     else:
-        target_set_columns = scoped_columns
+        target_set_columns = list (map (gen_dummy_column, scoped_columns))[:3]
     
     logging.info ("Generating base table description")
     staging_table = py_data_model_module.TableDesc (
@@ -116,15 +121,15 @@ def append_job_manifest (data           : str
       , resource_path = data_path.name
       , schema_path   = schema_path.name
       , resource_hash = data_hash
-      , scope         = target_set_columns
     )
     logging.debug (f"Base table description is `{staging_table}'. Its nominal type is `{type(staging_table)}'")
 
     logging.info ("Generating base example job description")
-    initial_example_job = py_data_model_module.JobDummy (
-        title             = f"Empty job template for {target_set_atomic}"
-      , atomic_name       = f"job_example_{target_set_atomic}" # The test job draws from 
-      , columns           = target_set_columns
+    initial_example_job = py_data_model_module.JobDesc(
+        atomic_name           = f"job_example_{target_set_atomic}"
+      , title                 = f"Empty job template for {target_set_atomic}"
+      , job_type              = "ignore"
+      , job_scope_descriptive = target_set_columns
     )
     logging.debug (f"Base example job description is `{initial_example_job}'. Its nominal type is {type(initial_example_job)}")
     
@@ -149,16 +154,18 @@ def append_job_manifest (data           : str
         target_class    = py_data_model_module.ManifestDesc
         loader          = RDFLibLoader ()
         extant_manifest = loader.load (source       = manifest
-                                      , target_class = target_class
-                                      , schemaview   = py_data_model_view)
+                                     , target_class = target_class
+                                     , schemaview   = py_data_model_view)
+        
         #, prefix_map={"_base": "http://localhost/saved/"})
 
         logging.info (f"Checking that data file {data} does not already exist in manifest")
         extant_paths      = map (lambda k : PurePath (k.resource_path).name, extant_manifest.tables)
         check_extant_path = data_path.name in extant_paths
-        check_extant_name = not (malformed_id_helper (extant_manifest, staging_table.atomic_name))
-        
-        if (check_extant_path and check_extant_name):
+        #check_extant_name = not (malformed_id_helper (extant_manifest, staging_table.atomic_name))
+        #if (check_extant_path and check_extant_name):
+
+        if (check_extant_path):
             print (f"Data-file {data} was already in the table, cannot add!")
             result = (not check_extant_path) and (not check_extant_name)
         else:

@@ -107,8 +107,8 @@ def malformed_id_helper (manifest_obj
     Prints an error message and returns true/false.
     '''
     root_identifier    = manifest_obj.atomic_name
-    table_identifiers  = [tab.atomic_name for tab in some_manifest.tables]
-    job_pairs          = [(job.atomic_name, job.job_sources) for job in some_manifest.jobs]
+    table_identifiers  = [tab.atomic_name for tab in manifest_obj.tables]
+    job_pairs          = [(job.atomic_name, job.job_sources) for job in manifest_obj.jobs]
     job_identifiers    = [jp[0] for jp in job_pairs]
     sources            = [jp[1] for jp in job_pairs]
     source_identifiers = [src.atomic_name for src in chain (*sources)]
