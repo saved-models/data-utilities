@@ -139,7 +139,7 @@ The imports take a prefix and import resources from it. It is sufficient to leav
 
 ### URI and CURIE prefixes
 
-These are in the format `<prefix>:<atom>`. There must be no space on either side of the colon. These are typically used in the various mappings attributes of slots, or overriding an URI.
+These are in the format `prefix:atom`. There must be no space on either side of the colon. These are typically used in the various mappings attributes of slots, or overriding an URI.
 
 ### Indentation
 
