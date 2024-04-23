@@ -172,7 +172,7 @@ def cli () -> None:
         chdir (mdir)
 
     for table in manifest_obj.tables:
-        target_uri = table.path
+        target_uri = table.resource_path
         print (f"Checking {target_uri} ...")
 
         prereq_check = isfile (target_uri)
@@ -184,11 +184,11 @@ def cli () -> None:
                 data = fp.read ()
                 hash = sha384  (data)
                 
-                if hash.hexdigest() != table.hash:
+                if hash.hexdigest() != table.resource_hash:
                     raise ValueError(f"{target_uri} has changed, please revalidate with `fisdat'")        
 
-    data       = [table.path    for table in manifest_obj.tables]
-    schemas    = [table.schema_path for table in manifest_obj.tables]
+    data       = [table.resource_path for table in manifest_obj.tables]
+    schemas    = [table.schema_path   for table in manifest_obj.tables]
     time_stamp = datetime.today ().strftime ('%Y%m%d')
     short_name = manifest_obj.source.split('@')[0]     
     url        = upload_files (args
