@@ -119,3 +119,30 @@ The `--verbose` and `--extra-verbose` flags have the same effect as in
 `fisdat`. They print debugging information about running state. 
 Similarly, the version number and associated git commit are always
 printed.
+
+## LinkML YAML usage
+
+Many of the LinkML schema fields are vague. 
+
+### The `id` and `name` fields
+The `id` field must be an URI, pointing somewhere. This does not need to be active, e.g. I put 'http://localhost/marinescot/sentinel_cages/sampling' in one of the examples.
+
+The `name` field is a short identifier or 'atom'. It cannot have spaces or most special characters, albeit underscores are valid. Put longer text titles in the `title` field, and longer still free text descriptions in the `description` field. (Unlike `id` and `name`, the `description` field is optional.)
+
+### Prefixes and imports
+
+Prefixes in the LinkML schema are used as the start of URIs in the generated schema. In the sentinel cages YAML example, we define `saved` as one such prefix, and then set it as the default prefix with the `default_prefix` keyword. The effect of this is that, by default, the classes and slots have a URI prepended to them in the generated documentation, which is this default prefix.
+
+For example, suppose we declared a slot called `infection_pressure`, declare a prefix `saved_new` with URI "http://localhost/saved_new/", and set `saved_new` as the value of `default_prefix`. The slot `infection_pressure` would then be given the URI `saved_new:infection_pressure` which would expand to "http://localhost/saved_new/infection_pressure".
+
+The imports take a prefix and import resources from it. It is sufficient to leave this as in the examples for now, as `linkml:types` and our own schema declare everything we need.
+
+### URI and CURIE prefixes
+
+These are in the format `prefix:atom`. There must be no space on either side of the colon. These are typically used in the various mappings attributes of slots, or overriding an URI.
+
+### Indentation
+
+Indentation does matter in most circumstances, because it is how the YAML distinguishes between sections. Getting the indentation right also makes the document easier to read, albeit it can sometimes be difficult to see where the indentation is wrong.
+
+Indentation may take any number of spaces, the suggested number is two or four.
