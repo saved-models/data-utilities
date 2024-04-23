@@ -34,38 +34,25 @@ def upload_files (args      : [str]
                 , owner     : str
                 , ts        : str) -> str:
     logging.debug (f"Called `upload_files (args = {args}, files = {files}, owner = {owner}, ts = {ts})'")
-
+    
     gen_path = lambda owner, ts, extra : owner + "/" + ts + "/" + extra
     client   = storage.Client()
     bucket   = client.bucket(args.bucket)
     jobuuid  = str(uuid.uuid1())
     path     = gen_path (owner, ts, args.directory) if args.directory is not None else gen_path (owner, ts, jobuuid)
-    if (not args.no_upload):
-        upload_message = "Uploading to"
-    else:
-        upload_message = "Would upload to"
-    
     for fname in files:
         fpath = path + "/" + fname
-        print (f"{upload_message}: gs://{args.bucket}/{fpath} ...")
+        print (f"Uploading gs://{args.bucket}/{fpath} ...")
         start = time.time ()
-        blob  = bucket.blob (fpath)
-        blob.timeout=86400
-        if (not args.no_upload):
-            with open(fname, "rb") as fp:
-                with blob.open("wb") as bp:
-                    while True:
-                        stuff = fp.read(BUFSIZ)
-                        if len(stuff) == 0:
-                            break
-                        bp.write(stuff)
-                        end = time.time ()
-                        abs_time = end - start
-            if (abs_time < 1):
-                elapsed = round (abs_time, 2)
-            else:
-                elapsed = round (abs_time)
-            print (f"Uploaded {fname} in {elapsed}s")
+        blob = bucket.blob(fpath)
+        blob.upload_from_filename (fname, timeout=86400)
+        end = time.time ()
+        abs_time = end - start
+        if (abs_time < 1):
+            elapsed = round (abs_time, 2)
+        else:
+            elapsed = round (abs_time)
+        print (f"Uploaded {fname} in {elapsed}s")
     return f"gs://{args.bucket}/{path}"
 
 def source () -> str:
