@@ -45,7 +45,8 @@ def manifest_to_template (manifest   : str
     
 def template_to_manifest (template   : str
                         , manifest   : str
-                        , data_model : str) -> bool:
+                        , data_model : str
+                        , prefixes   : dict[str,str]) -> bool:
     '''
     Generate a turtle manifest from an editable template
 
@@ -88,8 +89,9 @@ def template_to_manifest (template   : str
                                       , target_class = target_class)
 
         logging.info (f"Dumping template to {manifest}")
-        dumper.dump (staging_template, manifest, schemaview = py_data_model_view
-                   , prefix_map={"_base": "http://localhost/saved/"})
+        dumper.dump (staging_template, manifest
+                   , schemaview = py_data_model_view
+                   , prefix_map = prefixes)
     return (validation_test)
 
 def cli () -> None:
@@ -115,6 +117,9 @@ def cli () -> None:
     parser.add_argument ("--force", "-f"
                        , help = "If output file exists, overwrite it"
                        , action = "store_true")
+    parser.add_argument ("--base-prefix"
+                       , help    = "@base prefix from which job manifest, job results, data and descriptive statistics may be served."
+                       , default = "http://marine.gov.scot/metadata/saved/rap/")
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"
                        , required = False
@@ -164,8 +169,11 @@ def cli () -> None:
         elif (isfile (args.output) and not (args.force)):
             print (f"Output RDF/TTL manifest {args.output} already exists. Overwrite by passing the -f flag.")
         else:
+            prefixes = { "_base": args.base_prefix }
+
             res_bool = template_to_manifest (template   = args.input
                                            , manifest   = args.output
-                                           , data_model = data_model)
+                                           , data_model = data_model
+                                           , prefixes   = prefixes)
             if (res_bool):
                 print (f"Converted editable YAML template {args.input} to RDF/TTL job manifest {args.output}")        
