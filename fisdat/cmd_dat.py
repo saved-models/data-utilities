@@ -1,6 +1,8 @@
 from linkml.generators.pythongen     import PythonGenerator
+from linkml.utils.schemaloader       import SchemaLoader
 from linkml.utils.schema_builder     import SchemaBuilder
 from linkml_runtime.dumpers          import RDFLibDumper, YAMLDumper
+from linkml_runtime.linkml_model     import SchemaDefinition
 from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
 from linkml_runtime.utils.schemaview import SchemaView
 
@@ -103,10 +105,32 @@ def append_job_manifest (data           : str
     py_data_model_module = py_data_model_base.compile_module ()
     py_data_model_view   = py_data_model_base.schemaview
 
+    '''
+    def expand_schema_components(
+      py_obj
+    , py_schema         : SchemaDefinition
+    , schema_properties : dict[str]
+    , scoped_columns    : [str]
+    , base_prefix       : str
+    , saved_prefix      : str
+    , names_descriptive : [str] = ["column_descriptive", "saved:column_descriptive"]
+    , names_collected   : [str] = ["column_collected",   "saved:column_collected"  ]
+    , names_modelled    : [str] = ["column_modelled",    "saved:column_modelled"   ]
+    ) -> dict[[str]]:
+
+    '''
+
+
     logging.info ("Generating base job description")
-    schema_properties = schema_components_helper (schema)
+    schema_obj = SchemaLoader (schema).schema
+    schema_properties = schema_components_helper (schema_obj)
     target_set_atomic = schema_properties ["atomic_name"]
-    
+    logging.info ("Polling for scope components")
+    scope_triple = expand_schema_components (py_data_model_module
+                                           , schema_obj
+                                           , schema_properties
+                                           , scoped_columns
+                                           , prefixes)
     logging.info ("Generating base table description")
     staging_table = py_data_model_module.TableDesc (
         atomic_name   = target_set_atomic
@@ -119,11 +143,11 @@ def append_job_manifest (data           : str
     logging.debug (f"Base table description is `{staging_table}'.")
 
     logging.info ("Generating base example job description")
-    scope_triple = expand_schema_components (py_data_model_module, schema_properties, scoped_columns)
+    
     initial_example_job = py_data_model_module.JobDesc(
         atomic_name           = f"job_example_{target_set_atomic}"
       , title                 = f"Empty job template for {target_set_atomic}"
-      , job_type              = "rap:job_ignore"
+      , job_type              = prefixes["_base"] + "job_type_ignore"
       , job_scope_descriptive = scope_triple["descriptive"]
       , job_scope_collected   = scope_triple["collected"]
       , job_scope_modelled    = scope_triple["modelled"]
@@ -273,8 +297,11 @@ def cli () -> None:
                        , help     = "Name of the manifest title root"
                        , default  = "RootManifest")
     parser.add_argument ("--base-prefix"
-                       , help    = "@base prefix from which job manifest, job results, data and descriptive statistics may be served."
-                       , default = "http://marine.gov.scot/metadata/saved/rap/")
+                       , help     = "@base prefix from which job manifest, job results, data and descriptive statistics may be served."
+                       , default  = "http://marine.gov.scot/metadata/saved/rap/")
+    parser.add_argument ("--saved-prefix"
+                       , help     = "`saved' data model schema prefix"
+                       , default  = "http://marine.gov.scot/metadata/saved/schema/")
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"
                        , required = False
@@ -304,7 +331,8 @@ def cli () -> None:
     data_model_path = root_dir / yaml_sch
     data_model = str (data_model_path)
 
-    prefixes = { "_base": args.base_prefix }
+    prefixes = { "_base": args.base_prefix
+               , "saved": args.saved_prefix}
 
     manifest_wrapper (data           = args.csvfile
                     , schema         = args.schema

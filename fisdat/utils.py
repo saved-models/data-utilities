@@ -1,7 +1,8 @@
-from collections.abc           import Iterable
-from itertools                 import chain
-from linkml.utils.schemaloader import SchemaLoader
-from linkml.validator          import validate_file
+from collections.abc             import Iterable
+from itertools                   import chain
+from linkml_runtime.linkml_model import SchemaDefinition
+from linkml.utils.schemaloader   import SchemaLoader
+from linkml.validator            import validate_file
 import logging
 from os.path import isfile
 from pathlib import PurePath
@@ -67,7 +68,50 @@ def extension_helper (target_path : PurePath) -> str:
     else:
         return (target_path.suffix [1 : len (target_path.suffix)])
 
-def schema_components_helper (schema : str) -> dict [str, str]:
+def prefix_helper (schema_definition : SchemaDefinition
+                 , uriorcurie        : str
+                 , base_prefix       : str):
+    '''
+    Extract prefix and term and expand it
+
+    If the prefix doesn't exist, link to the default.
+    If the default isn't set, link to hard-coded `rap' prefix
+
+    The `.default_prefix' field is confusingly a single text code,
+    whereas the `.prefixes' field is a map between prefix text codes and
+    the reference URI, which is what we're actually interested in.
+    '''
+    print (f"Called prefix_helper on {uriorcurie} with base prefix {base_prefix}")
+    
+    default     = schema_definition.default_prefix
+    tuple_iri   = uriorcurie.split (':', 1)
+    # First case only applies to things referenced locally,
+    # use the base prefix!
+    if (len (tuple_iri) == 1):
+        return (base_prefix + tuple_iri[0])
+    else:
+        prefix = tuple_iri[0]
+        term   = tuple_iri[1]
+
+        # This is the map of all declared prefixes
+        prefix_maps = schema_definition.prefixes
+
+        test_target_map = prefix_maps.get (prefix)
+                
+        if (test_target_map is None and default is None):
+            prepend_uri = base_prefix
+        elif (test_target_map is None and (prefix_maps.get (default)) is None):
+            prepend_uri = base_prefix
+        elif (test_target_map is None):
+            default_map = prefix_maps.get (default)
+            prepend_uri = default_map.prefix_reference
+        else:
+            target_map = prefix_maps.get (prefix)
+            prepend_uri = target_map.prefix_reference
+
+        return (prepend_uri + term)
+    
+def schema_components_helper (schema_obj) -> dict [str, str]:
     '''
     A shim which serialises the schema proper, to extract components of
     interest, so that they can be serialised in the manifest `tables'
@@ -85,16 +129,14 @@ def schema_components_helper (schema : str) -> dict [str, str]:
     However, it is this first superset of slots associated with
     `TableSchema' which include any notion of mappings.
     '''
-    logging.debug (f"Calling `conversion_shim (schema = {schema})'")
-    schema_obj = SchemaLoader (schema).schema
-
+    #logging.debug (f"Calling `schema_components_helper (schema = {schema})'")
     all_slots      = schema_obj.slots.items()
     target_columns = schema_obj.classes ["TableSchema"].slots
     #target_pairs   = {k:(v.exact_mappings, for (k,v) in all_slots if k in target_columns}
 
     get_mappings = lambda k, v : {
         "name":  k
-      , "iri":   v.definition_uri
+      , "uri":   v.definition_uri
       , "super": v.is_a
       , "impl":  v.implements
       , "exact": v.exact_mappings
@@ -115,7 +157,10 @@ def schema_components_helper (schema : str) -> dict [str, str]:
 
 def mapping_helper(column_mapping    : dict[str, str]
                  , py_module
-                 , target_set_atomic : str) -> dict[str, str]:
+                 , py_schema         : SchemaDefinition
+                 , target_set_atomic : str
+                 , prefixes          : dict[str, str]
+    ) -> dict[str, str]:
     '''
     Given a column mapping fetched using `schema_components_helper()',
     summarise it as a `ColumnDesc' object.
@@ -123,29 +168,33 @@ def mapping_helper(column_mapping    : dict[str, str]
     When present, the underlying variable (from LinkML `exact_mappings')
     actually has the prefix `saved'.
     '''
-    logging.debug (f"Calling `mapping_helper (column_mapping = {column_mapping}, target_set_atomic =  {target_set_atomic})'")
-
+    logging.debug (f"Calling `mapping_helper (column_mapping = {column_mapping}, target_set_atomic = {target_set_atomic})'")
+    base_prefix  = prefixes["_base"]
+    saved_prefix = prefixes["saved"]
+    target_set_uri    = prefix_helper (py_schema, target_set_atomic, base_prefix)
     target_properties = column_mapping [1]
-    provenance = target_properties ["super"]
-    column     = target_properties ["name"]
-    exact      = target_properties ["exact"]
+    provenance        = target_properties ["super"]
+    column_uri        = target_properties ["uri"]
+    exact             = target_properties ["exact"]
     
     if (exact is None or len (exact) == 0):
-        underlying = "saved:some_underlying_variable"
+        underlying = saved_prefix + "some_underlying_variable"
     else:
-        underlying = exact[0] #when present, this actually has a `saved:atom' URI
+        underlying = prefix_helper (py_schema, exact[0], base_prefix)
 
     column_desc = py_module.ColumnDesc (
-        column   = f"rap:{column}" #f"rap:column"
+        column   = column_uri
       , variable = underlying
-      , table    = f"rap:{target_set_atomic}"
+      , table    = target_set_uri
     )
     return ((provenance, column_desc))
 
 def expand_schema_components(
       py_obj
+    , py_schema         : SchemaDefinition
     , schema_properties : dict[str]
     , scoped_columns    : [str]
+    , prefixes          : dict[str,str]
     , names_descriptive : [str] = ["column_descriptive", "saved:column_descriptive"]
     , names_collected   : [str] = ["column_collected",   "saved:column_collected"  ]
     , names_modelled    : [str] = ["column_modelled",    "saved:column_modelled"   ]
@@ -154,11 +203,15 @@ def expand_schema_components(
     This is primarily to avoid boiler-plate which was getting unmanageable in `cmd_dat.py'.
     It's effectively set differences to sort columns
     '''
+    base_prefix  = prefixes["_base"]
+    saved_prefix = prefixes["saved"]
+
+    
     logging.debug ("Call `expand_schema_components (schema = {schema})'")
 
     target_set_atomic = schema_properties ["atomic_name"]
     
-    gen_dummy_column = lambda k : mapping_helper (k, py_obj, target_set_atomic)
+    gen_dummy_column = lambda k : mapping_helper (k, py_obj, py_schema, target_set_atomic, prefixes)
 
     if (len (scoped_columns) == 0):
         target_set_columns = list (map (gen_dummy_column, list (schema_properties ["columns"].items ())))
