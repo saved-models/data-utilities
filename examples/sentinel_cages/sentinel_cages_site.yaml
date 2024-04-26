@@ -1,21 +1,22 @@
-id: http://localhost/marinescot/sentinel_cages/stations
-name: stations
+id: http://marine.gov.scot/metadata/saved/rap/sentinel_cages_site/
+name: sentinel_cages_site
 title: "Sentinel cages station information schema"
 prefixes:
   linkml: https://w3id.org/linkml/
-  saved: http://localhost/saved/
-  marinescot: http://localhost/marinescot/
+  saved:  http://marine.gov.scot/metadata/saved/schema/
+  rap:    http://marine.gov.scot/metadata/saved/rap/
+  mssite: http://marine.gov.scot/metadata/saved/rap/sentinel_cages_site/
 imports:
   - linkml:types
-  - ../../fisdat/data_model/src/model/core
-default_prefix: marinescot
+  - saved:core
+default_prefix: mssite
 license: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
 keywords:
   - sea lice
   - site data
-created_by: marinescot
+created_by: mssite
 modified_by: saved
-last_updated_on: "2024-03-24"
+last_updated_on: "2024-04-26"
 
 # head -n1 Sentinel_cage_station_info_6.csv | tr ',' '\n
 #
