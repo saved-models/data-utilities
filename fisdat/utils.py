@@ -72,12 +72,35 @@ def schema_components_helper (schema : str) -> dict [str, str]:
     A shim which serialises the schema proper, to extract components of
     interest, so that they can be serialised in the manifest `tables'
     section.
+
+    As regards to the slots, there are two elements to this.
+
+    First, there are an arbitary number of slots which the schema may
+    include. It is possible that some of these are actually top-level
+    imports from a different schema.
+
+    Second, there are the slots which are actually used to validate the
+    data file, which are properties of the `TableSchema' implementation.
+
+    However, it is this first superset of slots associated with
+    `TableSchema' which include any notion of mappings.
     '''
     logging.debug (f"Calling `conversion_shim (schema = {schema})'")
     schema_obj = SchemaLoader (schema).schema
-    
+
+    all_slots      = schema_obj.slots.items()
     target_columns = schema_obj.classes ["TableSchema"].slots
-    
+    #target_pairs   = {k:(v.exact_mappings, for (k,v) in all_slots if k in target_columns}
+
+    get_mappings = lambda k, v : {
+        "name":  k
+      , "iri":   v.definition_uri
+      , "super": v.is_a
+      , "impl":  v.implements
+      , "exact": v.exact_mappings
+    }
+    target_pairs = {k:get_mappings(k,v) for (k,v) in all_slots if k in target_columns}
+
     properties = {
         "title":       schema_obj.title
       , "atomic_name": schema_obj.name
@@ -85,11 +108,80 @@ def schema_components_helper (schema : str) -> dict [str, str]:
       , "description": str (schema_obj.description or "") # empty string meaningful
       , "license":     schema_obj.license
       , "keywords":    schema_obj.keywords
-      , "columns":     target_columns
+      , "columns":     target_pairs
     }
-    
     logging.debug (f"Extracted schema properties: {properties}")
     return (properties)
+
+def mapping_helper(column_mapping    : dict[str, str]
+                 , py_module
+                 , target_set_atomic : str) -> dict[str, str]:
+    '''
+    Given a column mapping fetched using `schema_components_helper()',
+    summarise it as a `ColumnDesc' object.
+
+    When present, the underlying variable (from LinkML `exact_mappings')
+    actually has the prefix `saved'.
+    '''
+    logging.debug (f"Calling `mapping_helper (column_mapping = {column_mapping}, target_set_atomic =  {target_set_atomic})'")
+
+    target_properties = column_mapping [1]
+    provenance = target_properties ["super"]
+    column     = target_properties ["name"]
+    exact      = target_properties ["exact"]
+    
+    if (exact is None or len (exact) == 0):
+        underlying = "saved:some_underlying_variable"
+    else:
+        underlying = exact[0] #when present, this actually has a `saved:atom' URI
+
+    column_desc = py_module.ColumnDesc (
+        column   = f"rap:{column}" #f"rap:column"
+      , variable = underlying
+      , table    = f"rap:{target_set_atomic}"
+    )
+    return ((provenance, column_desc))
+
+def expand_schema_components(
+      py_obj
+    , schema_properties : dict[str]
+    , scoped_columns    : [str]
+    , names_descriptive : [str] = ["column_descriptive", "saved:column_descriptive"]
+    , names_collected   : [str] = ["column_collected",   "saved:column_collected"  ]
+    , names_modelled    : [str] = ["column_modelled",    "saved:column_modelled"   ]
+    ) -> dict[[str]]:
+    '''
+    This is primarily to avoid boiler-plate which was getting unmanageable in `cmd_dat.py'.
+    It's effectively set differences to sort columns
+    '''
+    logging.debug ("Call `expand_schema_components (schema = {schema})'")
+
+    target_set_atomic = schema_properties ["atomic_name"]
+    
+    gen_dummy_column = lambda k : mapping_helper (k, py_obj, target_set_atomic)
+
+    if (len (scoped_columns) == 0):
+        target_set_columns = list (map (gen_dummy_column, list (schema_properties ["columns"].items ())))
+    else:
+        union_columns      = set (scoped_columns)  & set (list (schema_properties ["columns"]))
+        target_set_columns = list (map (gen_dummy_column, list (union_schema_columns)))
+        
+    names_all = names_descriptive + names_collected + names_modelled
+
+    logging.info ("Sorting columns into descriptive, collected and modelled lists")
+    columns_descriptive = filter (lambda m : fst (m) in names_descriptive, target_set_columns)
+    columns_collected   = filter (lambda m : fst (m) in names_collected, target_set_columns)
+    columns_modelled    = filter (lambda m : fst (m) in names_modelled, target_set_columns)
+    columns_other       = filter (lambda m : fst (m) not in names_all, target_set_columns)
+
+    snd = lambda k : k[1]
+    result = {
+        "descriptive": list (map (snd, list (columns_descriptive)))
+      , "collected":   list (map (snd, list (columns_collected)))
+      , "modelled":    list (map (snd, list (columns_modelled)))
+      , "other":       list (map (snd, list (columns_other)))
+    }
+    return (result)
 
 def malformed_id_helper (manifest_obj
                        , new_identifier : str

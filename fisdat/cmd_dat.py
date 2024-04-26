@@ -12,7 +12,7 @@ import inspect
 import logging
 
 from fisdat       import __version__, __commit__
-from fisdat.utils import fst, error, extension_helper, job_table, malformed_id_helper, schema_components_helper, take, validation_helper
+from fisdat.utils import fst, error, extension_helper, job_table, schema_components_helper, expand_schema_components, take, validation_helper
 from fisdat.ns    import CSVW
 from importlib    import resources as ir
 from .            import data_model as dm
@@ -38,6 +38,9 @@ def dump_wrapper (py_obj
     
     output_path_abs = str (output_path.name)
     output_path_ext = extension_helper (output_path)
+
+    namespaces = data_model_view.namespaces()
+    logging.info (f"Namespaces in the data model are {namespaces}")
 
     if (mode == "rdf_ttl_manifest"):
         if (output_path_ext != "rdf" and output_path_ext != "ttl"):
@@ -100,20 +103,9 @@ def append_job_manifest (data           : str
     py_data_model_module = py_data_model_base.compile_module ()
     py_data_model_view   = py_data_model_base.schemaview
 
-    schema_properties = schema_components_helper (schema)
-    
     logging.info ("Generating base job description")
+    schema_properties = schema_components_helper (schema)
     target_set_atomic = schema_properties ["atomic_name"]
-
-    gen_dummy_column = lambda col : py_data_model_module.ColumnDesc (
-        column   = col
-      , variable = "saved:underlying_variable" # Could fetch this from the resource file, but whatever
-      , table    = target_set_atomic #f"job:{target_set_atomic}"
-    )
-    if (len (scoped_columns) == 0):
-        target_set_columns = list (map (gen_dummy_column, schema_properties ["columns"]))[:3]
-    else:
-        target_set_columns = list (map (gen_dummy_column, scoped_columns))[:3]
     
     logging.info ("Generating base table description")
     staging_table = py_data_model_module.TableDesc (
@@ -124,14 +116,17 @@ def append_job_manifest (data           : str
       , schema_path   = schema_path.name
       , resource_hash = data_hash
     )
-    logging.debug (f"Base table description is `{staging_table}'. Its nominal type is `{type(staging_table)}'")
+    logging.debug (f"Base table description is `{staging_table}'.")
 
     logging.info ("Generating base example job description")
+    scope_triple = expand_schema_components (py_data_model_module, schema_properties, scoped_columns)
     initial_example_job = py_data_model_module.JobDesc(
-        atomic_name = f"job_example_{target_set_atomic}"
-      , title       = f"Empty job template for {target_set_atomic}"
-      , job_type              = "ignore"
-      , job_scope_descriptive = target_set_columns
+        atomic_name           = f"job_example_{target_set_atomic}"
+      , title                 = f"Empty job template for {target_set_atomic}"
+      , job_type              = "rap:job_ignore"
+      , job_scope_descriptive = scope_triple["descriptive"]
+      , job_scope_collected   = scope_triple["collected"]
+      , job_scope_modelled    = scope_triple["modelled"]
     )
     logging.debug (f"Base example job description is `{initial_example_job}'. Its nominal type is {type(initial_example_job)}")
     
@@ -159,36 +154,34 @@ def append_job_manifest (data           : str
         extant_manifest = loader.load (source       = manifest
                                      , target_class = target_class
                                      , schemaview   = py_data_model_view)
-        
-        #, prefix_map={"_base": "http://localhost/saved/"})
-
         logging.info (f"Checking that data file {data} does not already exist in manifest")
         extant_paths      = map (lambda k : PurePath (k.resource_path).name, extant_manifest.tables)
         check_extant_path = data_path.name in extant_paths
-        #check_extant_name = not (malformed_id_helper (extant_manifest, staging_table.atomic_name))
-        #if (check_extant_path and check_extant_name):
-
         if (check_extant_path):
             print (f"Data-file {data} was already in the table, cannot add!")
             result = (not check_extant_path) and (not check_extant_name)
         else:
             logging.info (f"Data-file {data} was not in manifest, adding")
-            # Don't bother adding an additional empty job here, since the 
-            # actual aim of creating the empty or example job in the
-            # initialisation stage is to make sure that the job field is
-            # minimally filled out.
-            # These fields are marked as required in `job.yaml', and
-            # we've just read in the manifest using that component of the
-            # data model as the manifest's *schema*. Therefore, it's safe
-            # to assume that they are filled out if we get this far.
-            # Further update the local utility version string to that of
-            # the most recent time we run it.
-            # Copy the loaded `extant_manifest' into a new object to work
-            # on. This is not particularly important at the moment but
-            # does aid debugging and makes clear that we're not writing
-            # the original object back, especially if we make more
-            # changes than appending to the table and updating the local
-            # version string.
+            '''
+            Don't bother adding an additional empty job here, since the 
+            actual aim of creating the empty or example job in the
+            initialisation stage is to make sure that the job field is
+            minimally filled out.
+            
+            These fields are marked as required in `job.yaml', and we've
+            just read in the manifest using that component of the data
+            model as the manifest's *schema*. Therefore, it's safe to
+            assume that they are filled out if we get this far.
+            Further update the local utility version string to that of
+            the most recent time we run it.
+            
+            Copy the loaded `extant_manifest' into a new object to work
+            on. This is not particularly important at the moment but
+            does aid debugging and makes clear that we're not writing
+            the original object back, especially if we make more changes
+            than appending to the table and updating the local version
+            string.
+            '''
             staging_manifest = extant_manifest
             staging_manifest.tables.append (staging_table)
             staging_manifest.local_version = __version__
