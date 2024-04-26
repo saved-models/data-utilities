@@ -96,14 +96,16 @@ def template_to_manifest (template   : str
 
 def cli () -> None:
     print (f"This is fisjob version {__version__}, commit {__commit__}")
+
+    op_to_yaml   = ["manifest-to-template", "to-template", "from-manifest"]
+    op_to_turtle = ["template-to-manifest", "to-manifest", "from-template"]
     
     parser = argparse.ArgumentParser ("fisjob")
     verbgr = parser.add_mutually_exclusive_group (required = False)
     
     parser.add_argument ("mode"
                        , type = str
-                       , choices = ["manifest-to-template", "to-template"
-                                  , "template-to-manifest", "to-manifest"]
+                       , choices = op_to_yaml + op_to_turtle
                        , help = "Select mode: conversion from RDF/TTL job manifest to editable YAML template, or vice versa")
     parser.add_argument ("input"
                        , help = "Conversion input (must exist)"
@@ -145,9 +147,8 @@ def cli () -> None:
     
     data_model_path = root_dir / yaml_sch
     data_model      = str (data_model_path)
-    
-    if (args.mode == "manifest-to-template" or args.mode == "to-template"):
-        
+
+    if (args.mode in op_to_yaml):        
         print (f"Converting RDF/TTL job manifest {args.input} to editable YAML template {args.output}")
 
         if (not (isfile (args.input))):
@@ -160,7 +161,8 @@ def cli () -> None:
                                          , data_model = data_model)
             
             print (f"Converted RDF/TTL job manifest {args.input} to editable YAML template {args.output}")
-            
+
+    # No need to check for the other options as `argparse' errors
     else:
         print (f"Converting editable YAML template {args.input} to RDF/TTL job manifest {args.output}")
         
