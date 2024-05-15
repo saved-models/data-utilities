@@ -3,12 +3,14 @@ name: sentinel_cages_site
 title: "Sentinel cages station information schema"
 prefixes:
   linkml: https://w3id.org/linkml/
-  saved:  http://marine.gov.scot/metadata/saved/schema/
-  rap:    http://marine.gov.scot/metadata/saved/rap/
-  mssite: http://marine.gov.scot/metadata/saved/rap/sentinel_cages_site/
+  saved:  https://marine.gov.scot/metadata/saved/schema/
+  rap:    https://marine.gov.scot/metadata/saved/rap/
+  mssite: https://marine.gov.scot/metadata/saved/rap/sentinel_cages_site/
 imports:
   - linkml:types
   - saved:core
+  - saved:types
+  
 default_prefix: mssite
 license: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
 keywords:
@@ -62,7 +64,9 @@ slots:
 
   Year:
     description:    Year
-    range:          year
+    any_of:
+      - range:      integer
+      - range:      string
     is_a:           column_descriptive
     exact_mappings: saved:year
     implements:     linkml:elements
@@ -70,7 +74,7 @@ slots:
     
   Cage.Lat.DDM:
     description:    Latitude of the cage
-    range:          LatLon
+    range:          LatLonType
     is_a:           column_descriptive
     exact_mappings: saved:latitude
     implements:     linkml:elements
@@ -78,7 +82,7 @@ slots:
     
   Cage.Long.DDM:
     description:    Longitude of the cage
-    range:          LatLon
+    range:          LatLonType
     is_a:           column_descriptive
     exact_mappings: saved:longitude
     implements:     linkml:elements

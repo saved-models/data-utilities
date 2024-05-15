@@ -3,9 +3,9 @@ name: sentinel_cages_sampling
 title: "Sentinel cages sampling information schema"
 prefixes:
   linkml: https://w3id.org/linkml/
-  saved:  http://marine.gov.scot/metadata/saved/schema/
-  rap:    http://marine.gov.scot/metadata/saved/rap/
-  mssamp: http://marine.gov.scot/metadata/saved/rap/sentinel_cages_sampling/
+  saved:  https://marine.gov.scot/metadata/saved/schema/
+  rap:    https://marine.gov.scot/metadata/saved/rap/
+  mssamp: https://marine.gov.scot/metadata/saved/rap/sentinel_cages_sampling/
 imports:
   - linkml:types
   - saved:core

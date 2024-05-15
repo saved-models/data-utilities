@@ -3,12 +3,12 @@ name: farmsite
 title: "Farm site information schema"
 prefixes:
   linkml:     https://w3id.org/linkml/
-  saved:      http://localhost/saved/
+  saved:      https://marine.gov.scot/metadata/saved/schema/
   fiskaaling: http://localhost/fiskaaling/
   schema:     http://schema.org/
 imports:
   - linkml:types
-  - ../../fisdat/data_model/src/model/core
+  - saved:core
 default_range:  string
 default_prefix: fiskaaling
 
