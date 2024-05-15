@@ -1,15 +1,16 @@
-from rdflib import Graph, Namespace, Literal
+from rdflib            import Graph, Namespace, Literal
 from rdflib.collection import Collection
-from datetime import datetime
-from google.cloud import storage
-from google.cloud import client as gc
-from hashlib import sha384
+from datetime          import datetime
+from google.cloud      import storage
+from google.cloud      import client as gc
+from hashlib           import sha384
 import argparse
-from os.path import isfile, basename, dirname
-from os import chdir
-from pathlib import Path, PurePath
+import codecs
 import json
 import logging
+from os.path import isfile, basename, dirname
+from os      import chdir
+from pathlib import Path, PurePath
 import time
 import uuid
 
@@ -20,19 +21,19 @@ from linkml.validator.report         import Severity, ValidationResult, Validati
 from linkml_runtime.loaders          import RDFLibLoader
 from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
-from fisdat import __version__, __commit__
-from fisdat.utils import fst, extension_helper, job_table
-from fisdat.ns import CSVW
-from importlib import resources as ir
-from . import data_model as dm
+from fisdat            import __version__, __commit__
+from fisdat.ns         import CSVW
+from fisdat.utils      import fst, extension_helper, job_table, schema_to_ttl
+from fisdat.data_model import ManifestDesc
 
 ## data read/write buffer size, 1MB
 BUFSIZ=1048576
 
-def upload_files (args      : [str]
-                , files     : [str]
-                , owner     : str
-                , ts        : str) -> str:
+def upload_files (args    : [str]
+                , files   : [str]
+                , owner   : str
+                , ts      : str
+                , dry_run : bool) -> str:
     logging.debug (f"Called `upload_files (args = {args}, files = {files}, owner = {owner}, ts = {ts})'")
     
     gen_path = lambda owner, ts, extra : owner + "/" + ts + "/" + extra
@@ -40,19 +41,24 @@ def upload_files (args      : [str]
     bucket   = client.bucket(args.bucket)
     jobuuid  = str(uuid.uuid1())
     path     = gen_path (owner, ts, args.directory) if args.directory is not None else gen_path (owner, ts, jobuuid)
-    for fname in files:
-        fpath = path + "/" + fname
-        print (f"Uploading gs://{args.bucket}/{fpath} ...")
-        start = time.time ()
-        blob = bucket.blob(fpath)
-        blob.upload_from_filename (fname, timeout=86400)
-        end = time.time ()
-        abs_time = end - start
-        if (abs_time < 1):
-            elapsed = round (abs_time, 2)
-        else:
-            elapsed = round (abs_time)
-        print (f"Uploaded {fname} in {elapsed}s")
+    if (not dry_run):
+        for fname in files:
+            fpath = path + "/" + fname
+            print (f"Uploading gs://{args.bucket}/{fpath} ...")
+            start = time.time ()
+            blob = bucket.blob(fpath)
+            blob.upload_from_filename (fname, timeout=86400)
+            end = time.time ()
+            abs_time = end - start
+            if (abs_time < 1):
+                elapsed = round (abs_time, 2)
+            else:
+                elapsed = round (abs_time)
+            print (f"Uploaded {fname} in {elapsed}s")
+    else:
+        for fname in files:
+            fpath = path + "/" + fname
+            print (f"Would upload to gs://{args.bucket}/{fpath} ...")
     return f"gs://{args.bucket}/{path}"
 
 def source () -> str:
@@ -65,7 +71,8 @@ def source () -> str:
 
 # Can't type this as we haven't compiled the model to Python data-classes yet
 # Instead use the horrible target_class thing below
-def load_manifest (data_model_path : PurePath, manifest_path : PurePath):
+def load_manifest (data_model_uri : str,
+                   manifest_path  : PurePath):
     '''
     Note that this duplicates some of the code in cmd_dat.py, since
     loading the schema is a part of the `append_manifest()' function.
@@ -78,31 +85,41 @@ def load_manifest (data_model_path : PurePath, manifest_path : PurePath):
     data-model as a class, which will enable us to avoid serialising
     the py_data_model &c.
     '''
-    data_model   = str (data_model_path)
     manifest     = str (manifest_path)
     manifest_ext = extension_helper (manifest_path)
 
-    logging.debug (f"Called `load_manifest (data_model_path = {data_model}, manifest_path = {manifest})'")
-    
-    py_data_model_base   = PythonGenerator (data_model)
-    py_data_model_module = py_data_model_base.compile_module ()
-    py_data_model_view   = py_data_model_base.schemaview
+    logging.debug (f"Called `load_manifest (data_model_uri = {data_model_uri}, manifest_path = {manifest})'")
+    py_data_model_view = SchemaView (data_model_uri)
     
     if (manifest_ext != "rdf"):
         logging.info (f"Warning: target extension has a .{manifest_ext} extension, but will actually be serialised as RDF/TTL")
 
-    target_class      = py_data_model_module.__dict__["ManifestDesc"]
     loader            = RDFLibLoader ()
     original_manifest = loader.load (source       = manifest
-                                   , target_class = target_class
+                                   , target_class = ManifestDesc
                                    , schemaview   = py_data_model_view)
     return (original_manifest)
 
+def prep_index(manifest_path : str
+             , index_name    : str
+    ) -> str:
+    '''
+    Echo the manifest file name to .index or other file.
+    This avoids hard-coding the manifest title.
+    '''
+    logging.debug (f"Called `prep_index (manifest_path = {manifest_path}, index_name = {index_name})'")
+
+    output_index = codecs.open (index_name, "w", "utf-8")
+    output_index.write (manifest_path)
+    output_index.close ()
+
+    return (index_name)
+    
 def cli () -> None:
     """
     Command line interface
     """
-    print (f"This is fisdat version {__version__}, commit {__commit__}")
+    print (f"This is fisup version {__version__}, commit {__commit__}")
     
     parser = argparse.ArgumentParser("fisup")
     verbgr = parser.add_mutually_exclusive_group (required = False)
@@ -120,9 +137,12 @@ def cli () -> None:
                        , help="Data source email"
                        , default = None)
     parser.add_argument ("manifest", help="Manifest file")
-    parser.add_argument ("--data-model"
-                       , help     = "Data model YAML specification in fisdat/data_model/src/model"
-                       , default  = "meta")
+    parser.add_argument ("--index"
+                       , help = "Name of hidden index file recording manifest file name"
+                       , default = ".index")
+    parser.add_argument ("--data-model-uri"
+                       , help     = "Data model YAML specification URI"
+                       , default  = "https://marine.gov.scot/metadata/saved/schema/meta.yaml")
     parser.add_argument ("-n", "--no-upload", "--dry-run"
                        , help     = "Don't upload files"
                        , action   = "store_true")
@@ -158,9 +178,8 @@ def cli () -> None:
 
         _networking._urlopen = kludge._urlopen
 
-    data_model_path = ir.files (dm) / f"src/model/{args.data_model}.yaml"
     manifest_path   = PurePath (args.manifest)
-    manifest_obj    = load_manifest (data_model_path, manifest_path)
+    manifest_obj    = load_manifest (args.data_model_uri, manifest_path)
         
     # Equivalent of dumping JSON in the old CLI:
     print (job_table (manifest_obj, preamble=False, mode='r'))
@@ -187,13 +206,15 @@ def cli () -> None:
                 if hash.hexdigest() != table.resource_hash:
                     raise ValueError(f"{target_uri} has changed, please revalidate with `fisdat'")        
 
+    index      = prep_index (args.manifest, args.index)
     data       = [table.resource_path for table in manifest_obj.tables]
     schemas    = [table.schema_path   for table in manifest_obj.tables]
     time_stamp = datetime.today ().strftime ('%Y%m%d')
-    short_name = manifest_obj.source.split('@')[0]     
+    short_name = manifest_obj.source.split('@')[0]
     url        = upload_files (args
-                            , [basename (args.manifest)] + data + schemas
-                            , short_name, time_stamp)
+                            , [basename (args.manifest), index] + data + schemas
+                            , short_name, time_stamp
+                            , args.no_upload)
 
     if (not args.no_upload):
         print(f"Successfully uploaded your data-set to {url}")

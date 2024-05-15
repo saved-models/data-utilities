@@ -13,11 +13,10 @@ from pathlib    import Path, PurePath
 import inspect
 import logging
 
-from fisdat       import __version__, __commit__
-from fisdat.utils import fst, error, extension_helper, job_table, schema_components_helper, expand_schema_components, take, validation_helper
-from fisdat.ns    import CSVW
-from importlib    import resources as ir
-from .            import data_model as dm
+from fisdat            import __version__, __commit__
+from fisdat.data_model import ColumnDesc, JobDesc, TableDesc, ManifestDesc
+from fisdat.ns         import CSVW
+from fisdat.utils      import fst, error, extension_helper, job_table, schema_components_helper, expand_schema_components, take, validation_helper
 
 def dump_wrapper (py_obj
                 , data_model_view : SchemaView
@@ -71,7 +70,7 @@ def dump_wrapper (py_obj
 
 def append_job_manifest (data           : str
                        , schema         : str
-                       , data_model     : str
+                       , data_model_uri : str
                        , manifest       : str
                        , manifest_title : str
                        , mode           : str
@@ -84,9 +83,8 @@ def append_job_manifest (data           : str
     are ncessary when serialising JSON-LD and RDF. It can point to
     job.yaml or the meta-model which pulls it in at the top-level.
     '''
-    logging.debug (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, manifest_title = {manifest_title}, mode = {mode}, scoped_columns = {scoped_columns}, prefixes = {prefixes})'")
+    logging.debug (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model_uri = {data_model_uri}, manifest = {manifest}, manifest_title = {manifest_title}, mode = {mode}, scoped_columns = {scoped_columns}, prefixes = {prefixes})'")
     
-    data_model_path = PurePath (data_model)
     manifest_path   = PurePath (manifest)
     manifest_ext    = extension_helper (manifest_path)
     data_path       = PurePath (data) # Necessary to only include the file name proper
@@ -97,42 +95,21 @@ def append_job_manifest (data           : str
         data_text = fp.read ()
     data_hash = sha384 (data_text).hexdigest()
     
-    # PythonGenerator seems to spit out WARNING messages regardless of log_level
-    logging.info (f"Creating Python object from data model {data_model}")
-    py_data_model_base = PythonGenerator (data_model)
-
-    logging.info (f"Compiling Python object")
-    py_data_model_module = py_data_model_base.compile_module ()
-    py_data_model_view   = py_data_model_base.schemaview
-
-    '''
-    def expand_schema_components(
-      py_obj
-    , py_schema         : SchemaDefinition
-    , schema_properties : dict[str]
-    , scoped_columns    : [str]
-    , base_prefix       : str
-    , saved_prefix      : str
-    , names_descriptive : [str] = ["column_descriptive", "saved:column_descriptive"]
-    , names_collected   : [str] = ["column_collected",   "saved:column_collected"  ]
-    , names_modelled    : [str] = ["column_modelled",    "saved:column_modelled"   ]
-    ) -> dict[[str]]:
-
-    '''
-
-
+    py_data_model_view = SchemaView (data_model_uri)
+    
     logging.info ("Generating base job description")
-    schema_obj = SchemaLoader (schema).schema
+    schema_obj        = SchemaLoader (schema).schema
     schema_properties = schema_components_helper (schema_obj)
     target_set_atomic = schema_properties ["atomic_name"]
+    
     logging.info ("Polling for scope components")
-    scope_triple = expand_schema_components (py_data_model_module
-                                           , schema_obj
+    scope_triple = expand_schema_components (schema_obj
                                            , schema_properties
                                            , scoped_columns
                                            , prefixes)
+    
     logging.info ("Generating base table description")
-    staging_table = py_data_model_module.TableDesc (
+    staging_table = TableDesc (
         atomic_name   = target_set_atomic
       , title         = schema_properties ["title"]
       , description   = schema_properties ["description"] # Partly for filling out a template, use even empty
@@ -144,7 +121,7 @@ def append_job_manifest (data           : str
 
     logging.info ("Generating base example job description")
     
-    initial_example_job = py_data_model_module.JobDesc(
+    initial_example_job = JobDesc (
         atomic_name           = f"job_example_{target_set_atomic}"
       , title                 = f"Empty job template for {target_set_atomic}"
       , job_type              = prefixes["_base"] + "job_type_ignore"
@@ -157,11 +134,11 @@ def append_job_manifest (data           : str
     logging.info ("Proceeding with manifest initialise or append operation")
     if (mode == "initialise"):        
         logging.info (f"Initialising manifest {manifest}")
-        manifest_skeleton = py_data_model_module.ManifestDesc (
-            atomic_name   = manifest_title
-          , tables        = [staging_table]
-          , jobs          = [initial_example_job]
-          , local_version = __version__
+        manifest_skeleton = ManifestDesc (
+              atomic_name   = manifest_title
+            , tables        = [staging_table]
+            , jobs          = [initial_example_job]
+            , local_version = __version__
         )
         result = dump_wrapper (py_obj          = manifest_skeleton
                              , data_model_view = py_data_model_view
@@ -173,10 +150,9 @@ def append_job_manifest (data           : str
 
     else:
         logging.info (f"Reading existing manifest {manifest}")
-        target_class    = py_data_model_module.ManifestDesc
         loader          = RDFLibLoader ()
         extant_manifest = loader.load (source       = manifest
-                                     , target_class = target_class
+                                     , target_class = ManifestDesc
                                      , schemaview   = py_data_model_view)
         logging.info (f"Checking that data file {data} does not already exist in manifest")
         extant_paths      = map (lambda k : PurePath (k.resource_path).name, extant_manifest.tables)
@@ -222,7 +198,7 @@ def append_job_manifest (data           : str
 
 def manifest_wrapper (data           : str
                     , schema         : str
-                    , data_model     : str
+                    , data_model_uri : str
                     , manifest       : str
                     , manifest_title : str
                     , validate       : bool
@@ -233,7 +209,7 @@ def manifest_wrapper (data           : str
     whether the manifest file exists (optional) and whether the schema
     and data file exists (obviously mandatory).
     '''
-    logging.debug (f"Called `manifest_wrapper (data = {data}, schema = {schema}, data_model = {data_model}, manifest = {manifest}, manifest_title = {manifest_title}, validate = {validate}, scoped_columns = {scoped_columns}, prefixes = {prefixes})'")
+    logging.debug (f"Called `manifest_wrapper (data = {data}, schema = {schema}, data_model_uri = {data_model_uri}, manifest = {manifest}, manifest_title = {manifest_title}, validate = {validate}, scoped_columns = {scoped_columns}, prefixes = {prefixes})'")
     logging.debug (f"Checking that input data {data} and schema {schema} files exist")
     
     prereq_check = isfile (data) and isfile (schema)
@@ -248,12 +224,12 @@ def manifest_wrapper (data           : str
         if (validation_check):
             if (isfile (manifest)):
                 logging.info (f"Manifest exists, appending to manifest {manifest}")
-                result = append_job_manifest (data, schema, data_model
+                result = append_job_manifest (data, schema, data_model_uri
                                             , manifest, manifest_title, "append"
                                             , scoped_columns, prefixes)
             else:
                 logging.info (f"Manifest does not exist, creating new manifest {manifest}")
-                result = append_job_manifest (data, schema, data_model
+                result = append_job_manifest (data, schema, data_model_uri
                                             , manifest, manifest_title, "initialise"
                                             , scoped_columns, prefixes)
             return (result)
@@ -285,9 +261,9 @@ def cli () -> None:
     parser.add_argument ("-n", "--no-validate", "--dry-run"
                        , help     = "Disable validation"
                        , action   = "store_true")
-    parser.add_argument ("--data-model"
-                       , help     = "Data model YAML specification in fisdat/data_model/src/model"
-                       , default  = "meta")
+    parser.add_argument ("--data-model-uri"
+                       , help     = "Data model YAML specification URI"
+                       , default  = "https://marine.gov.scot/metadata/saved/schema/meta.yaml")
     parser.add_argument ("--job-scope"
                        , help     = "Use these columns to fill out example job section in initial manifest"
                        , metavar  = 'COL'
@@ -298,10 +274,10 @@ def cli () -> None:
                        , default  = "RootManifest")
     parser.add_argument ("--base-prefix"
                        , help     = "@base prefix from which job manifest, job results, data and descriptive statistics may be served."
-                       , default  = "http://marine.gov.scot/metadata/saved/rap/")
+                       , default  = "https://marine.gov.scot/metadata/saved/rap/")
     parser.add_argument ("--saved-prefix"
                        , help     = "`saved' data model schema prefix"
-                       , default  = "http://marine.gov.scot/metadata/saved/schema/")
+                       , default  = "https://marine.gov.scot/metadata/saved/schema/")
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"
                        , required = False
@@ -321,22 +297,13 @@ def cli () -> None:
                        , format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'")
 
     logging.debug (f"Columns selected to bring into job scope are f{args.job_scope}")
-    
-    logging.debug (f"Polling data model directory")
-    root_dir = ir.files (dm)
-    logging.debug (f"Data model working directory is: {root_dir}")
-    yaml_sch = f"src/model/{args.data_model}.yaml"
-    logging.debug (f"Data model path is: {yaml_sch}")
-    
-    data_model_path = root_dir / yaml_sch
-    data_model = str (data_model_path)
 
     prefixes = { "_base": args.base_prefix
                , "saved": args.saved_prefix}
 
     manifest_wrapper (data           = args.csvfile
                     , schema         = args.schema
-                    , data_model     = data_model
+                    , data_model_uri = args.data_model_uri
                     , manifest       = args.manifest
                     , manifest_title = args.manifest_title
                     , validate       = not args.no_validate

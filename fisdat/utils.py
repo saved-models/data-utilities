@@ -14,6 +14,8 @@ from pathlib                     import PurePath
 import re
 from typing                      import Optional
 
+from fisdat.data_model           import ColumnDesc
+
 def fst(g):
     '''
     Utility function. RDFLib gives generators all over the place and
@@ -162,7 +164,6 @@ def schema_components_helper (schema_obj) -> dict [str, str]:
     return (properties)
 
 def mapping_helper(column_mapping    : dict[str, str]
-                 , py_module
                  , py_schema         : SchemaDefinition
                  , target_set_atomic : str
                  , prefixes          : dict[str, str]
@@ -188,16 +189,15 @@ def mapping_helper(column_mapping    : dict[str, str]
     else:
         underlying = prefix_helper (py_schema, exact[0], base_prefix)
 
-    column_desc = py_module.ColumnDesc (
-        column   = column_uri
-      , variable = underlying
-      , table    = target_set_uri
+    column_desc = ColumnDesc (
+         column   = column_uri
+       , variable = underlying
+       , table    = target_set_uri
     )
     return ((provenance, column_desc))
 
 def expand_schema_components(
-      py_obj
-    , py_schema         : SchemaDefinition
+      py_schema         : SchemaDefinition
     , schema_properties : dict[str]
     , scoped_columns    : [str]
     , prefixes          : dict[str,str]
@@ -216,7 +216,7 @@ def expand_schema_components(
 
     target_set_atomic = schema_properties ["atomic_name"]
     
-    gen_dummy_column = lambda k : mapping_helper (k, py_obj, py_schema, target_set_atomic, prefixes)
+    gen_dummy_column = lambda k : mapping_helper (k, py_schema, target_set_atomic, prefixes)
 
     if (len (scoped_columns) == 0):
         target_set_columns = list (map (gen_dummy_column, list (schema_properties ["columns"].items ())))
@@ -272,7 +272,7 @@ def schema_to_ttl(schema_path       : PurePath
     to a manifest file. As such, if the file exists, rename it so that a
     `.bak' extension is appended to the file name.
     '''
-    logging.debug (f"Called `convert_schema_pre_upload (schema_path = {schema_path})'")
+    logging.debug (f"Called `convert_schema_pre_upload (schema_path = {str (schema_path)}, ttl_override_path = {str (ttl_override_path)} yaml_rename = {yaml_rename})'")
     
     schema_stem = schema_path.stem
     schema_ext  = schema_path.suffix
