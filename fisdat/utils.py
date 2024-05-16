@@ -27,7 +27,7 @@ def fst(g):
 
 def validation_helper (data         : str
                      , schema       : str
-                     , target_class : str) -> bool:
+                     , target_class) -> bool:
     '''
     `validate_file()' either returns an empty list or a collection of
     errors in a report (`linkml.validator.report.ValidationReport').

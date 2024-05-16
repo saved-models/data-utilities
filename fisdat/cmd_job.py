@@ -3,50 +3,73 @@ from itertools  import chain
 from os.path    import isfile
 import logging
 
-from linkml.generators.pythongen import PythonGenerator
-from linkml_runtime.loaders      import RDFLibLoader, YAMLLoader
-from linkml_runtime.dumpers      import YAMLDumper  , RDFLibDumper
+from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
+from linkml_runtime.dumpers          import YAMLDumper  , RDFLibDumper
+from linkml_runtime.utils.schemaview import SchemaView
 
-from fisdat       import __version__, __commit__
-from fisdat.utils import malformed_id_helper, validation_helper
-from importlib    import resources as ir
-from .            import data_model as dm
+from fisdat            import __version__, __commit__
+from fisdat.utils      import malformed_id_helper, validation_helper
+from fisdat.data_model import ManifestDesc
 
-def manifest_to_template (manifest   : str
-                        , template   : str
-                        , data_model : str) -> str:
+'''
+When dumping and loading YAML from the Turtle representation, there is
+fairly consistent behaviour as regards to identifiers and URIs.
+
+For identifiers, namely `atomic_name' attributes, these are serialised in
+the form prefix:atom, with the prefix being the name of the base prefix
+of the Turtle manifest in the LinkML data classes (either `rap' or
+`saved').
+
+At minimum, then, for any `atomic_name' field, when dumping, process the
+YAML such that it gets serialised as the atom component, and when
+loading, process the YAML such that it gets the base prefix prepended.
+
+For URIs, these are serialised as the full URI (which makes good sense),
+but this fairly slightly annoying to write out several times over.
+This is primarily an issue for the lists of columns in scope in a given
+column. These column descriptions have three elements:
+
+1. The column proper. This can never come from a table *different* to the
+   table in the same attribute, so any full URI for a given column is
+   always redundant, at least in terms of the possibility that it may
+   differ.
+2. The underlying variable. The underlying variable, which is a
+   well-known field in the data model, is used for pattern-matching, so
+   it is always well-known.
+3. The table refenenced is local to the manifest file, so it *should*
+   always have a URI leading with the base prefix of the manifest file.
+
+Thus while the full URIs are semantically correct, there are a number of
+assumptions which we make which means that the possibility of the
+conditions above not holding is distinctly problematic.
+''' 
+
+def manifest_to_template (manifest       : str
+                        , template       : str
+                        , data_model_uri : str) -> str:
     '''
     Generate an editable template from a turtle manifest
     '''
-    logging.debug (f"Called `generate_manifest_template (manifest = {manifest}, template = {template}, data_model = {data_model})'")
-
-    # PythonGenerator seems to spit out WARNING messages regardless of log_level
-    logging.info (f"Creating Python object from data model {data_model}")
-    py_data_model_base = PythonGenerator (data_model)
-
-    logging.info (f"Compiling Python object")
-    py_data_model_module = py_data_model_base.compile_module ()
-    py_data_model_view   = py_data_model_base.schemaview
-
-    target_class = py_data_model_module.ManifestDesc
+    logging.debug (f"Called `generate_manifest_template (manifest = {manifest}, template = {template}, data_model_uri = {data_model_uri})'")
+    py_data_model_view = SchemaView (data_model_uri)
 
     loader = RDFLibLoader ()
     dumper = YAMLDumper   ()
 
     logging.info ("Loading manifest")
     staging_manifest = loader.load (source       = manifest
-                                  , target_class = target_class
-                                  , schemaview = py_data_model_view)
+                                  , target_class = ManifestDesc
+                                  , schemaview   = py_data_model_view)
     
     logging.info (f"Dumping manifest to {template}")
     dumper.dump (staging_manifest, template)
 
     return (template)
     
-def template_to_manifest (template   : str
-                        , manifest   : str
-                        , data_model : str
-                        , prefixes   : dict[str,str]) -> bool:
+def template_to_manifest (template       : str
+                        , manifest       : str
+                        , data_model_uri : str
+                        , prefixes       : dict[str,str]) -> bool:
     '''
     Generate a turtle manifest from an editable template
 
@@ -65,21 +88,13 @@ def template_to_manifest (template   : str
     serialised back to turtle silently dropping all duplicates excepting
     the first.
     '''
-    logging.debug (f"Called `template_to_manifest (manifest = {manifest}, template = {template}, data_model = {data_model})'")
+    logging.debug (f"Called `template_to_manifest (manifest = {manifest}, template = {template}, data_model_uri = {data_model_uri})'")
     validation_test = validation_helper (data         = template
                                        , schema       = data_model
-                                       , target_class = "ManifestDesc")
+                                       , target_class = ManifestDesc)
     
     if (validation_test):
-        # PythonGenerator seems to spit out WARNING messages regardless of log_level
-        logging.info (f"Creating Python object from data model {data_model}")
-        py_data_model_base = PythonGenerator (data_model)
-
-        logging.info (f"Compiling Python object")
-        py_data_model_module = py_data_model_base.compile_module ()
-        py_data_model_view   = py_data_model_base.schemaview
-
-        target_class = py_data_model_module.ManifestDesc
+        py_data_model_view  = SchemaView (data_model_uri)
         
         loader = YAMLLoader   ()
         dumper = RDFLibDumper ()
@@ -113,9 +128,9 @@ def cli () -> None:
     parser.add_argument ("output"
                        , help = "Conversion output (will not overwrite by default)"
                          , type = str)
-    parser.add_argument ("--data-model"
-                       , help    = "Data model YAML specification in fisdat/data_model/src/model"
-                       , default = "job")
+    parser.add_argument ("--data-model-uri"
+                       , help     = "Data model YAML specification URI"
+                       , default  = "https://marine.gov.scot/metadata/saved/schema/meta.yaml")
     parser.add_argument ("--force", "-f"
                        , help = "If output file exists, overwrite it"
                        , action = "store_true")
@@ -139,15 +154,6 @@ def cli () -> None:
     logging.basicConfig (level  = args.log_level
                        , format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'")
 
-    logging.debug (f"Polling data model directory")
-    root_dir = ir.files (dm)
-    logging.debug (f"Data model working directory is: {root_dir}")
-    yaml_sch = f"src/model/{args.data_model}.yaml"
-    logging.debug (f"Data model path is: {yaml_sch}")
-    
-    data_model_path = root_dir / yaml_sch
-    data_model      = str (data_model_path)
-
     if (args.mode in op_to_yaml):        
         print (f"Converting RDF/TTL job manifest {args.input} to editable YAML template {args.output}")
 
@@ -156,9 +162,9 @@ def cli () -> None:
         elif (isfile (args.output) and not (args.force)):
             print (f"Output editable YAML template {args.output} already exists. Overwrite by passing the -f flag.")
         else:
-            res_fp = manifest_to_template (manifest   = args.input
-                                         , template   = args.output
-                                         , data_model = data_model)
+            res_fp = manifest_to_template (manifest       = args.input
+                                         , template       = args.output
+                                         , data_model_uri = args.data_model_uri)
             
             print (f"Converted RDF/TTL job manifest {args.input} to editable YAML template {args.output}")
 
@@ -173,9 +179,9 @@ def cli () -> None:
         else:
             prefixes = { "_base": args.base_prefix }
 
-            res_bool = template_to_manifest (template   = args.input
-                                           , manifest   = args.output
-                                           , data_model = data_model
-                                           , prefixes   = prefixes)
+            res_bool = template_to_manifest (template       = args.input
+                                           , manifest       = args.output
+                                           , data_model_uri = data_model_uri
+                                           , prefixes       = prefixes)
             if (res_bool):
                 print (f"Converted editable YAML template {args.input} to RDF/TTL job manifest {args.output}")        
