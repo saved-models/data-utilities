@@ -1,20 +1,22 @@
 import codecs
 from collections.abc             import Iterable
 from itertools                   import chain
+
 from linkml_runtime.dumpers      import RDFLibDumper
 from linkml_runtime.linkml_model import SchemaDefinition
 from linkml.generators.pythongen import PythonGenerator
 from linkml.generators.rdfgen    import RDFGenerator
 from linkml.utils.schemaloader   import SchemaLoader
 from linkml.validator            import validate_file
-import logging
-from os import replace
-from os.path                     import isfile
-from pathlib                     import PurePath
-import re
-from typing                      import Optional
 
-from fisdat.data_model           import ColumnDesc
+import logging
+from os      import replace
+from os.path import isfile
+from pathlib import PurePath
+import re
+from typing  import Optional
+
+from fisdat.data_model import ScopeDesc, TableDesc
 
 def fst(g):
     '''
@@ -118,128 +120,6 @@ def prefix_helper (schema_definition : SchemaDefinition
             prepend_uri = target_map.prefix_reference
 
         return (prepend_uri + term)
-    
-def schema_components_helper (schema_obj) -> dict [str, str]:
-    '''
-    A shim which serialises the schema proper, to extract components of
-    interest, so that they can be serialised in the manifest `tables'
-    section.
-
-    As regards to the slots, there are two elements to this.
-
-    First, there are an arbitary number of slots which the schema may
-    include. It is possible that some of these are actually top-level
-    imports from a different schema.
-
-    Second, there are the slots which are actually used to validate the
-    data file, which are properties of the `TableSchema' implementation.
-
-    However, it is this first superset of slots associated with
-    `TableSchema' which include any notion of mappings.
-    '''
-    #logging.debug (f"Calling `schema_components_helper (schema = {schema})'")
-    all_slots      = schema_obj.slots.items()
-    target_columns = schema_obj.classes ["TableSchema"].slots
-    #target_pairs   = {k:(v.exact_mappings, for (k,v) in all_slots if k in target_columns}
-
-    get_mappings = lambda k, v : {
-        "name":  k
-      , "uri":   v.definition_uri
-      , "super": v.is_a
-      , "impl":  v.implements
-      , "exact": v.exact_mappings
-    }
-    target_pairs = {k:get_mappings(k,v) for (k,v) in all_slots if k in target_columns}
-
-    properties = {
-        "title":       schema_obj.title
-      , "atomic_name": schema_obj.name
-      , "remote_path": schema_obj.id
-      , "description": str (schema_obj.description or "") # empty string meaningful
-      , "license":     schema_obj.license
-      , "keywords":    schema_obj.keywords
-      , "columns":     target_pairs
-    }
-    logging.debug (f"Extracted schema properties: {properties}")
-    return (properties)
-
-def mapping_helper(column_mapping    : dict[str, str]
-                 , py_schema         : SchemaDefinition
-                 , target_set_atomic : str
-                 , prefixes          : dict[str, str]
-    ) -> dict[str, str]:
-    '''
-    Given a column mapping fetched using `schema_components_helper()',
-    summarise it as a `ColumnDesc' object.
-
-    When present, the underlying variable (from LinkML `exact_mappings')
-    actually has the prefix `saved'.
-    '''
-    logging.debug (f"Calling `mapping_helper (column_mapping = {column_mapping}, target_set_atomic = {target_set_atomic})'")
-    base_prefix  = prefixes["_base"]
-    saved_prefix = prefixes["saved"]
-    target_set_uri    = prefix_helper (py_schema, target_set_atomic, base_prefix)
-    target_properties = column_mapping [1]
-    provenance        = target_properties ["super"]
-    column_uri        = target_properties ["uri"]
-    exact             = target_properties ["exact"]
-    
-    if (exact is None or len (exact) == 0):
-        underlying = saved_prefix + "some_underlying_variable"
-    else:
-        underlying = prefix_helper (py_schema, exact[0], base_prefix)
-
-    column_desc = ColumnDesc (
-         column   = column_uri
-       , variable = underlying
-       , table    = target_set_uri
-    )
-    return ((provenance, column_desc))
-
-def expand_schema_components(
-      py_schema         : SchemaDefinition
-    , schema_properties : dict[str]
-    , scoped_columns    : [str]
-    , prefixes          : dict[str,str]
-    , names_descriptive : [str] = ["column_descriptive", "saved:column_descriptive"]
-    , names_collected   : [str] = ["column_collected",   "saved:column_collected"  ]
-    , names_modelled    : [str] = ["column_modelled",    "saved:column_modelled"   ]
-    ) -> dict[[str]]:
-    '''
-    This is primarily to avoid boiler-plate which was getting unmanageable in `cmd_dat.py'.
-    It's effectively set differences to sort columns
-    '''
-    base_prefix  = prefixes["_base"]
-    saved_prefix = prefixes["saved"]
-    
-    logging.debug ("Call `expand_schema_components (schema = {schema})'")
-
-    target_set_atomic = schema_properties ["atomic_name"]
-    
-    gen_dummy_column = lambda k : mapping_helper (k, py_schema, target_set_atomic, prefixes)
-
-    if (len (scoped_columns) == 0):
-        target_set_columns = list (map (gen_dummy_column, list (schema_properties ["columns"].items ())))
-    else:
-        union_columns      = set (scoped_columns)  & set (list (schema_properties ["columns"]))
-        target_set_columns = list (map (gen_dummy_column, list (union_schema_columns)))
-        
-    names_all = names_descriptive + names_collected + names_modelled
-
-    logging.info ("Sorting columns into descriptive, collected and modelled lists")
-    columns_descriptive = filter (lambda m : fst (m) in names_descriptive, target_set_columns)
-    columns_collected   = filter (lambda m : fst (m) in names_collected, target_set_columns)
-    columns_modelled    = filter (lambda m : fst (m) in names_modelled, target_set_columns)
-    columns_other       = filter (lambda m : fst (m) not in names_all, target_set_columns)
-
-    snd = lambda k : k[1]
-    result = {
-        "descriptive": list (map (snd, list (columns_descriptive)))
-      , "collected":   list (map (snd, list (columns_collected)))
-      , "modelled":    list (map (snd, list (columns_modelled)))
-      , "other":       list (map (snd, list (columns_other)))
-    }
-    return (result)
 
 def schema_to_ttl(schema_path       : PurePath
                 , ttl_override_path : Optional[PurePath]
@@ -392,7 +272,7 @@ def job_table (dataclass
     to show a really simple JSON object in a table!
     '''
     tables       = dataclass.tables
-    tuples       = [(k.resource_path, k.schema_path, k.resource_hash) for k in tables]
+    tuples       = [(k.resource_path, k.schema_path_yaml, k.resource_hash) for k in tables]
     tuples_extra = tuples + [col_names] # Potentially adjust column lengths
     
     file_len = max ([len (p[0]) for p in tuples_extra])

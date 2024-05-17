@@ -1,8 +1,8 @@
 # Auto generated from meta.yaml by pythongen.py version: 0.0.1
-# Generation date: 2024-05-15T18:03:13
+# Generation date: 2024-05-17T16:31:26
 # Schema: meta
 #
-# id: http://marine.gov.scot/metadata/saved/schema/meta/
+# id: https://marine.gov.scot/metadata/saved/schema/meta/
 # description:
 # license: https://creativecommons.org/publicdomain/zero/1.0/
 
@@ -22,8 +22,8 @@ from linkml_runtime.utils.formatutils import camelcase, underscore, sfx
 from linkml_runtime.utils.enumerations import EnumDefinitionImpl
 from rdflib import Namespace, URIRef
 from linkml_runtime.utils.curienamespace import CurieNamespace
-from linkml_runtime.linkml_model.types import Float, Integer, String, Uriorcurie
-from linkml_runtime.utils.metamodelcore import URIorCURIE
+from linkml_runtime.linkml_model.types import Float, Integer, String, Uri
+from linkml_runtime.utils.metamodelcore import URI
 
 metamodel_version = "1.7.0"
 version = None
@@ -34,11 +34,11 @@ dataclasses._init_fn = dataclasses_init_fn_with_kwargs
 # Namespaces
 DC = CurieNamespace('dc', 'http://purl.org/dc/elements/1.1/')
 DCTERMS = CurieNamespace('dcterms', 'http://purl.org/dc/terms/')
-JOB = CurieNamespace('job', 'http://marine.gov.scot/metadata/saved/schema/job_')
+JOB = CurieNamespace('job', 'https://marine.gov.scot/metadata/saved/schema/job_')
 LINKML = CurieNamespace('linkml', 'https://w3id.org/linkml/')
 PAV = CurieNamespace('pav', 'http://purl.org/pav/')
-RAP = CurieNamespace('rap', 'http://marine.gov.scot/metadata/saved/rap/')
-SAVED = CurieNamespace('saved', 'http://marine.gov.scot/metadata/saved/schema/')
+RAP = CurieNamespace('rap', 'https://marine.gov.scot/metadata/saved/rap/')
+SAVED = CurieNamespace('saved', 'https://marine.gov.scot/metadata/saved/schema/')
 DEFAULT_ = SAVED
 
 
@@ -55,6 +55,10 @@ class TableDescAtomicName(extended_str):
     pass
 
 
+class ExtColumnDescAtomicName(extended_str):
+    pass
+
+
 class JobDescAtomicName(extended_str):
     pass
 
@@ -66,7 +70,7 @@ class ManifestDescAtomicName(extended_str):
 @dataclass
 class TableDesc(YAMLRoot):
     """
-    Job manifest: data source descriptive attributes
+    Manifest: data source descriptive attributes
     """
     _inherited_slots: ClassVar[List[str]] = []
 
@@ -76,11 +80,12 @@ class TableDesc(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = SAVED.TableDesc
 
     atomic_name: Union[str, TableDescAtomicName] = None
-    resource_path: Union[str, URIorCURIE] = None
-    schema_path: Union[str, URIorCURIE] = None
+    resource_path: Union[str, URI] = None
     resource_hash: str = None
+    schema_path_yaml: Union[str, URI] = None
     title: Optional[str] = None
     description: Optional[str] = None
+    schema_path_ttl: Optional[Union[str, URI]] = None
 
     def __post_init__(self, *_: List[str], **kwargs: Dict[str, Any]):
         if self._is_empty(self.atomic_name):
@@ -90,18 +95,18 @@ class TableDesc(YAMLRoot):
 
         if self._is_empty(self.resource_path):
             self.MissingRequiredField("resource_path")
-        if not isinstance(self.resource_path, URIorCURIE):
-            self.resource_path = URIorCURIE(self.resource_path)
-
-        if self._is_empty(self.schema_path):
-            self.MissingRequiredField("schema_path")
-        if not isinstance(self.schema_path, URIorCURIE):
-            self.schema_path = URIorCURIE(self.schema_path)
+        if not isinstance(self.resource_path, URI):
+            self.resource_path = URI(self.resource_path)
 
         if self._is_empty(self.resource_hash):
             self.MissingRequiredField("resource_hash")
         if not isinstance(self.resource_hash, str):
             self.resource_hash = str(self.resource_hash)
+
+        if self._is_empty(self.schema_path_yaml):
+            self.MissingRequiredField("schema_path_yaml")
+        if not isinstance(self.schema_path_yaml, URI):
+            self.schema_path_yaml = URI(self.schema_path_yaml)
 
         if self.title is not None and not isinstance(self.title, str):
             self.title = str(self.title)
@@ -109,28 +114,27 @@ class TableDesc(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
+        if self.schema_path_ttl is not None and not isinstance(self.schema_path_ttl, URI):
+            self.schema_path_ttl = URI(self.schema_path_ttl)
+
         super().__post_init__(**kwargs)
 
 
 @dataclass
-class ColumnDesc(YAMLRoot):
+class ScopeDesc(YAMLRoot):
     """
-    Job manifest: column scope description and annotations
-    This has three elements:
-    1. The column name
-    2. The table from which the column is or columns are drawn
-    3. The variable underpinning the column, which is specific to the job.
+    Manifest: column scope description and attributes including variable underpinning the column
     """
     _inherited_slots: ClassVar[List[str]] = []
 
-    class_class_uri: ClassVar[URIRef] = SAVED["ColumnDesc"]
-    class_class_curie: ClassVar[str] = "saved:ColumnDesc"
-    class_name: ClassVar[str] = "ColumnDesc"
-    class_model_uri: ClassVar[URIRef] = SAVED.ColumnDesc
+    class_class_uri: ClassVar[URIRef] = SAVED["ScopeDesc"]
+    class_class_curie: ClassVar[str] = "saved:ScopeDesc"
+    class_name: ClassVar[str] = "ScopeDesc"
+    class_model_uri: ClassVar[URIRef] = SAVED.ScopeDesc
 
     column: str = None
-    variable: Union[str, URIorCURIE] = None
-    table: Union[str, URIorCURIE] = None
+    variable: Union[str, ExtColumnDescAtomicName] = None
+    table: Union[str, TableDescAtomicName] = None
 
     def __post_init__(self, *_: List[str], **kwargs: Dict[str, Any]):
         if self._is_empty(self.column):
@@ -140,13 +144,36 @@ class ColumnDesc(YAMLRoot):
 
         if self._is_empty(self.variable):
             self.MissingRequiredField("variable")
-        if not isinstance(self.variable, URIorCURIE):
-            self.variable = URIorCURIE(self.variable)
+        if not isinstance(self.variable, ExtColumnDescAtomicName):
+            self.variable = ExtColumnDescAtomicName(self.variable)
 
         if self._is_empty(self.table):
             self.MissingRequiredField("table")
-        if not isinstance(self.table, URIorCURIE):
-            self.table = URIorCURIE(self.table)
+        if not isinstance(self.table, TableDescAtomicName):
+            self.table = TableDescAtomicName(self.table)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass
+class ExtColumnDesc(YAMLRoot):
+    """
+    Catch-all external column description
+    """
+    _inherited_slots: ClassVar[List[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = SAVED["ExtColumnDesc"]
+    class_class_curie: ClassVar[str] = "saved:ExtColumnDesc"
+    class_name: ClassVar[str] = "ExtColumnDesc"
+    class_model_uri: ClassVar[URIRef] = SAVED.ExtColumnDesc
+
+    atomic_name: Union[str, ExtColumnDescAtomicName] = None
+
+    def __post_init__(self, *_: List[str], **kwargs: Dict[str, Any]):
+        if self._is_empty(self.atomic_name):
+            self.MissingRequiredField("atomic_name")
+        if not isinstance(self.atomic_name, ExtColumnDescAtomicName):
+            self.atomic_name = ExtColumnDescAtomicName(self.atomic_name)
 
         super().__post_init__(**kwargs)
 
@@ -154,7 +181,7 @@ class ColumnDesc(YAMLRoot):
 @dataclass
 class JobDesc(YAMLRoot):
     """
-    Job manifest: job specification attributes which specific job sub-classes inherit
+    Manifest: job specification attributes which specific job sub-classes inherit
     """
     _inherited_slots: ClassVar[List[str]] = []
 
@@ -164,11 +191,11 @@ class JobDesc(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = SAVED.JobDesc
 
     atomic_name: Union[str, JobDescAtomicName] = None
-    job_type: Union[str, URIorCURIE] = None
+    job_type: Union[str, "JobType"] = None
     title: Optional[str] = None
-    job_scope_descriptive: Optional[Union[Union[dict, ColumnDesc], List[Union[dict, ColumnDesc]]]] = empty_list()
-    job_scope_collected: Optional[Union[Union[dict, ColumnDesc], List[Union[dict, ColumnDesc]]]] = empty_list()
-    job_scope_modelled: Optional[Union[Union[dict, ColumnDesc], List[Union[dict, ColumnDesc]]]] = empty_list()
+    job_scope_descriptive: Optional[Union[Union[dict, ScopeDesc], List[Union[dict, ScopeDesc]]]] = empty_list()
+    job_scope_collected: Optional[Union[Union[dict, ScopeDesc], List[Union[dict, ScopeDesc]]]] = empty_list()
+    job_scope_modelled: Optional[Union[Union[dict, ScopeDesc], List[Union[dict, ScopeDesc]]]] = empty_list()
 
     def __post_init__(self, *_: List[str], **kwargs: Dict[str, Any]):
         if self._is_empty(self.atomic_name):
@@ -178,23 +205,23 @@ class JobDesc(YAMLRoot):
 
         if self._is_empty(self.job_type):
             self.MissingRequiredField("job_type")
-        if not isinstance(self.job_type, URIorCURIE):
-            self.job_type = URIorCURIE(self.job_type)
+        if not isinstance(self.job_type, JobType):
+            self.job_type = JobType(self.job_type)
 
         if self.title is not None and not isinstance(self.title, str):
             self.title = str(self.title)
 
         if not isinstance(self.job_scope_descriptive, list):
             self.job_scope_descriptive = [self.job_scope_descriptive] if self.job_scope_descriptive is not None else []
-        self.job_scope_descriptive = [v if isinstance(v, ColumnDesc) else ColumnDesc(**as_dict(v)) for v in self.job_scope_descriptive]
+        self.job_scope_descriptive = [v if isinstance(v, ScopeDesc) else ScopeDesc(**as_dict(v)) for v in self.job_scope_descriptive]
 
         if not isinstance(self.job_scope_collected, list):
             self.job_scope_collected = [self.job_scope_collected] if self.job_scope_collected is not None else []
-        self.job_scope_collected = [v if isinstance(v, ColumnDesc) else ColumnDesc(**as_dict(v)) for v in self.job_scope_collected]
+        self.job_scope_collected = [v if isinstance(v, ScopeDesc) else ScopeDesc(**as_dict(v)) for v in self.job_scope_collected]
 
         if not isinstance(self.job_scope_modelled, list):
             self.job_scope_modelled = [self.job_scope_modelled] if self.job_scope_modelled is not None else []
-        self.job_scope_modelled = [v if isinstance(v, ColumnDesc) else ColumnDesc(**as_dict(v)) for v in self.job_scope_modelled]
+        self.job_scope_modelled = [v if isinstance(v, ScopeDesc) else ScopeDesc(**as_dict(v)) for v in self.job_scope_modelled]
 
         super().__post_init__(**kwargs)
 
@@ -202,7 +229,7 @@ class JobDesc(YAMLRoot):
 @dataclass
 class ManifestDesc(YAMLRoot):
     """
-    Job manifest: complete specification
+    Manifest: job invocation specification
     """
     _inherited_slots: ClassVar[List[str]] = []
 
@@ -241,7 +268,18 @@ class ManifestDesc(YAMLRoot):
 
 
 # Enumerations
+class JobType(EnumDefinitionImpl):
 
+    ignore = PermissibleValue(
+        text="ignore",
+        description="""Dummy job to ignore: Associated job description may describe arbitrary columns, underlying variables, or tables""")
+    density = PermissibleValue(
+        text="density",
+        description="ODE version of the sea lice accumulation model")
+
+    _defn = EnumDefinition(
+        name="JobType",
+    )
 
 # Slots
 class slots:
@@ -339,13 +377,16 @@ slots.resource_hash = Slot(uri=SAVED.resource_hash, name="resource_hash", curie=
                    model_uri=SAVED.resource_hash, domain=None, range=str)
 
 slots.path = Slot(uri=SAVED.path, name="path", curie=SAVED.curie('path'),
-                   model_uri=SAVED.path, domain=None, range=Optional[Union[str, URIorCURIE]])
+                   model_uri=SAVED.path, domain=None, range=Optional[Union[str, URI]])
 
 slots.resource_path = Slot(uri=SAVED.resource_path, name="resource_path", curie=SAVED.curie('resource_path'),
-                   model_uri=SAVED.resource_path, domain=None, range=Union[str, URIorCURIE])
+                   model_uri=SAVED.resource_path, domain=None, range=Union[str, URI])
 
-slots.schema_path = Slot(uri=SAVED.schema_path, name="schema_path", curie=SAVED.curie('schema_path'),
-                   model_uri=SAVED.schema_path, domain=None, range=Union[str, URIorCURIE])
+slots.schema_path_yaml = Slot(uri=SAVED.schema_path_yaml, name="schema_path_yaml", curie=SAVED.curie('schema_path_yaml'),
+                   model_uri=SAVED.schema_path_yaml, domain=None, range=Union[str, URI])
+
+slots.schema_path_ttl = Slot(uri=SAVED.schema_path_ttl, name="schema_path_ttl", curie=SAVED.curie('schema_path_ttl'),
+                   model_uri=SAVED.schema_path_ttl, domain=None, range=Optional[Union[str, URI]])
 
 slots.tables = Slot(uri=SAVED.tables, name="tables", curie=SAVED.curie('tables'),
                    model_uri=SAVED.tables, domain=None, range=Union[Dict[Union[str, TableDescAtomicName], Union[dict, TableDesc]], List[Union[dict, TableDesc]]])
@@ -354,25 +395,25 @@ slots.column = Slot(uri=SAVED.column, name="column", curie=SAVED.curie('column')
                    model_uri=SAVED.column, domain=None, range=str)
 
 slots.variable = Slot(uri=SAVED.variable, name="variable", curie=SAVED.curie('variable'),
-                   model_uri=SAVED.variable, domain=None, range=Union[str, URIorCURIE])
+                   model_uri=SAVED.variable, domain=None, range=Union[str, ExtColumnDescAtomicName])
 
 slots.table = Slot(uri=SAVED.table, name="table", curie=SAVED.curie('table'),
-                   model_uri=SAVED.table, domain=None, range=Union[str, URIorCURIE])
+                   model_uri=SAVED.table, domain=None, range=Union[str, TableDescAtomicName])
 
 slots.job_scope = Slot(uri=SAVED.job_scope, name="job_scope", curie=SAVED.curie('job_scope'),
-                   model_uri=SAVED.job_scope, domain=None, range=Optional[Union[Union[dict, ColumnDesc], List[Union[dict, ColumnDesc]]]])
+                   model_uri=SAVED.job_scope, domain=None, range=Optional[Union[Union[dict, ScopeDesc], List[Union[dict, ScopeDesc]]]])
 
 slots.job_scope_descriptive = Slot(uri=SAVED.job_scope_descriptive, name="job_scope_descriptive", curie=SAVED.curie('job_scope_descriptive'),
-                   model_uri=SAVED.job_scope_descriptive, domain=None, range=Optional[Union[Union[dict, ColumnDesc], List[Union[dict, ColumnDesc]]]])
+                   model_uri=SAVED.job_scope_descriptive, domain=None, range=Optional[Union[Union[dict, ScopeDesc], List[Union[dict, ScopeDesc]]]])
 
 slots.job_scope_collected = Slot(uri=SAVED.job_scope_collected, name="job_scope_collected", curie=SAVED.curie('job_scope_collected'),
-                   model_uri=SAVED.job_scope_collected, domain=None, range=Optional[Union[Union[dict, ColumnDesc], List[Union[dict, ColumnDesc]]]])
+                   model_uri=SAVED.job_scope_collected, domain=None, range=Optional[Union[Union[dict, ScopeDesc], List[Union[dict, ScopeDesc]]]])
 
 slots.job_scope_modelled = Slot(uri=SAVED.job_scope_modelled, name="job_scope_modelled", curie=SAVED.curie('job_scope_modelled'),
-                   model_uri=SAVED.job_scope_modelled, domain=None, range=Optional[Union[Union[dict, ColumnDesc], List[Union[dict, ColumnDesc]]]])
+                   model_uri=SAVED.job_scope_modelled, domain=None, range=Optional[Union[Union[dict, ScopeDesc], List[Union[dict, ScopeDesc]]]])
 
 slots.job_type = Slot(uri=SAVED.job_type, name="job_type", curie=SAVED.curie('job_type'),
-                   model_uri=SAVED.job_type, domain=None, range=Union[str, URIorCURIE])
+                   model_uri=SAVED.job_type, domain=None, range=Union[str, "JobType"])
 
 slots.jobs = Slot(uri=SAVED.jobs, name="jobs", curie=SAVED.curie('jobs'),
                    model_uri=SAVED.jobs, domain=None, range=Union[Dict[Union[str, JobDescAtomicName], Union[dict, JobDesc]], List[Union[dict, JobDesc]]])

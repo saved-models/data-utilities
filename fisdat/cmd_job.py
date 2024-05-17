@@ -12,22 +12,7 @@ from fisdat.utils      import malformed_id_helper, validation_helper
 from fisdat.data_model import ManifestDesc
 
 '''
-When dumping and loading YAML from the Turtle representation, there is
-fairly consistent behaviour as regards to identifiers and URIs.
-
-For identifiers, namely `atomic_name' attributes, these are serialised in
-the form prefix:atom, with the prefix being the name of the base prefix
-of the Turtle manifest in the LinkML data classes (either `rap' or
-`saved').
-
-At minimum, then, for any `atomic_name' field, when dumping, process the
-YAML such that it gets serialised as the atom component, and when
-loading, process the YAML such that it gets the base prefix prepended.
-
-For URIs, these are serialised as the full URI (which makes good sense),
-but this fairly slightly annoying to write out several times over.
-This is primarily an issue for the lists of columns in scope in a given
-column. These column descriptions have three elements:
+Column descriptions have three elements:
 
 1. The column proper. This can never come from a table *different* to the
    table in the same attribute, so any full URI for a given column is
@@ -38,10 +23,6 @@ column. These column descriptions have three elements:
    it is always well-known.
 3. The table refenenced is local to the manifest file, so it *should*
    always have a URI leading with the base prefix of the manifest file.
-
-Thus while the full URIs are semantically correct, there are a number of
-assumptions which we make which means that the possibility of the
-conditions above not holding is distinctly problematic.
 ''' 
 
 def manifest_to_template (manifest       : str
@@ -89,25 +70,20 @@ def template_to_manifest (template       : str
     the first.
     '''
     logging.debug (f"Called `template_to_manifest (manifest = {manifest}, template = {template}, data_model_uri = {data_model_uri})'")
-    validation_test = validation_helper (data         = template
-                                       , schema       = data_model
-                                       , target_class = ManifestDesc)
     
-    if (validation_test):
-        py_data_model_view  = SchemaView (data_model_uri)
+    py_data_model_view  = SchemaView (data_model_uri)
         
-        loader = YAMLLoader   ()
-        dumper = RDFLibDumper ()
+    loader = YAMLLoader   ()
+    dumper = RDFLibDumper ()
 
-        logging.info ("Loading template file")
-        staging_template = loader.load (source       = template
-                                      , target_class = target_class)
+    logging.info ("Loading template file")
+    staging_template = loader.load (source       = template
+                                      , target_class = ManifestDesc)
 
-        logging.info (f"Dumping template to {manifest}")
-        dumper.dump (staging_template, manifest
-                   , schemaview = py_data_model_view
-                   , prefix_map = prefixes)
-    return (validation_test)
+    logging.info (f"Dumping template to {manifest}")
+    dumper.dump (staging_template, manifest
+                 , schemaview = py_data_model_view
+                 , prefix_map = prefixes)
 
 def cli () -> None:
     print (f"This is fisjob version {__version__}, commit {__commit__}")
@@ -136,7 +112,10 @@ def cli () -> None:
                        , action = "store_true")
     parser.add_argument ("--base-prefix"
                        , help    = "@base prefix from which job manifest, job results, data and descriptive statistics may be served."
-                       , default = "http://marine.gov.scot/metadata/saved/rap/")
+                       , default = "https://marine.gov.scot/metadata/saved/rap/")
+    parser.add_argument ("--saved-prefix"
+                       , help     = "`saved' data model schema prefix"
+                       , default  = "https://marine.gov.scot/metadata/saved/schema/")
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"
                        , required = False
@@ -177,11 +156,12 @@ def cli () -> None:
         elif (isfile (args.output) and not (args.force)):
             print (f"Output RDF/TTL manifest {args.output} already exists. Overwrite by passing the -f flag.")
         else:
-            prefixes = { "_base": args.base_prefix }
+            prefixes = { "_base": args.base_prefix
+                       , "saved": args.saved_prefix}
 
             res_bool = template_to_manifest (template       = args.input
                                            , manifest       = args.output
-                                           , data_model_uri = data_model_uri
+                                           , data_model_uri = args.data_model_uri
                                            , prefixes       = prefixes)
             if (res_bool):
                 print (f"Converted editable YAML template {args.input} to RDF/TTL job manifest {args.output}")        

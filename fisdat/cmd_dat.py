@@ -14,7 +14,7 @@ import inspect
 import logging
 
 from fisdat            import __version__, __commit__
-from fisdat.data_model import ColumnDesc, JobDesc, TableDesc, ManifestDesc
+from fisdat.data_model import JobDesc, TableDesc, ManifestDesc
 from fisdat.ns         import CSVW
 from fisdat.utils      import fst, error, extension_helper, job_table, schema_components_helper, expand_schema_components, take, validation_helper
 
@@ -101,35 +101,25 @@ def append_job_manifest (data           : str
     schema_obj        = SchemaLoader (schema).schema
     schema_properties = schema_components_helper (schema_obj)
     target_set_atomic = schema_properties ["atomic_name"]
-    
-    logging.info ("Polling for scope components")
-    scope_triple = expand_schema_components (schema_obj
-                                           , schema_properties
-                                           , scoped_columns
-                                           , prefixes)
-    
+
     logging.info ("Generating base table description")
     staging_table = TableDesc (
-        atomic_name   = target_set_atomic
-      , title         = schema_properties ["title"]
-      , description   = schema_properties ["description"] # Partly for filling out a template, use even empty
-      , resource_path = data_path.name
-      , schema_path   = schema_path.name
-      , resource_hash = data_hash
+        atomic_name      = target_set_atomic
+      , title            = schema_properties ["title"]
+      , description      = schema_properties ["description"] # Partly for filling out a template, use even empty
+      , resource_path    = data_path.name
+      , schema_path_yaml = schema_path.name
+      , resource_hash    = data_hash
     )
-    logging.debug (f"Base table description is `{staging_table}'.")
 
-    logging.info ("Generating base example job description")
-    
     initial_example_job = JobDesc (
         atomic_name           = f"job_example_{target_set_atomic}"
       , title                 = f"Empty job template for {target_set_atomic}"
-      , job_type              = prefixes["_base"] + "job_type_ignore"
-      , job_scope_descriptive = scope_triple["descriptive"]
-      , job_scope_collected   = scope_triple["collected"]
-      , job_scope_modelled    = scope_triple["modelled"]
+      , job_type              = "ignore"
+      , job_scope_descriptive = []
+      , job_scope_collected   = []
+      , job_scope_modelled    = []
     )
-    logging.debug (f"Base example job description is `{initial_example_job}'. Its nominal type is {type(initial_example_job)}")
     
     logging.info ("Proceeding with manifest initialise or append operation")
     if (mode == "initialise"):        
@@ -299,7 +289,7 @@ def cli () -> None:
     logging.debug (f"Columns selected to bring into job scope are f{args.job_scope}")
 
     prefixes = { "_base": args.base_prefix
-               , "saved": args.saved_prefix}
+               , "saved": args.saved_prefix }
 
     manifest_wrapper (data           = args.csvfile
                     , schema         = args.schema
