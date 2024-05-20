@@ -2,11 +2,7 @@ import codecs
 from collections.abc             import Iterable
 from itertools                   import chain
 
-from linkml_runtime.dumpers      import RDFLibDumper
 from linkml_runtime.linkml_model import SchemaDefinition
-from linkml.generators.pythongen import PythonGenerator
-from linkml.generators.rdfgen    import RDFGenerator
-from linkml.utils.schemaloader   import SchemaLoader
 from linkml.validator            import validate_file
 
 import logging
@@ -121,90 +117,49 @@ def prefix_helper (schema_definition : SchemaDefinition
 
         return (prepend_uri + term)
 
-def schema_to_ttl(schema_path       : PurePath
-                , ttl_override_path : Optional[PurePath]
-                , yaml_rename       : bool = False
-    ) -> (bool, Optional[PurePath], Optional[PurePath]):
+def schema_components_helper (schema_obj) -> dict [str, str]:
     '''
-    The final step prior to uploading is to convert the schema to an RDF
-    representation. This will be helpful for creating an RDF data-set
-    later on, and it means that the schemata themselves can be processed
-    with non-Python tooling (since the YAML schemata are for the LinkML
-    library).
+    A shim which serialises the schema proper, to extract components of
+    interest, so that they can be serialised in the manifest `tables'
+    section.
 
-    The general expectation is that the schemata for data files will have
-    a `.yaml' extension as advised. However, it is possible that folks
-    may get confused, either by passing the wrong file into the command-
-    line utilities, or by naming their schema file with a `.ttl' or
-    `.rdf' extension.
+    As regards to the slots, there are two elements to this.
 
-    In this case, it makes good sense to normalise a given YAML schema to
-    have a `.yaml' extension, which introduces a problem when the target
-    file to be renamed already exists. The default behaviour must not be
-    to forcibly overwrite this, as we judge it to be more likely that the
-    wrong filename will be passed into the command-line tools than
-    producing a file with the wrong extension.
+    First, there are an arbitary number of slots which the schema may
+    include. It is possible that some of these are actually top-level
+    imports from a different schema.
 
-    The target turtle equivalent will just be devised by substituting the
-    extension of the provided schema file (any extension) for `.ttl'.
-    The use-case here is the exact opposite because the model of usage of
-    the `fisdat' and `fisup' command-line utilities is instead to append
-    to a manifest file. As such, if the file exists, rename it so that a
-    `.bak' extension is appended to the file name.
+    Second, there are the slots which are actually used to validate the
+    data file, which are properties of the `TableSchema' implementation.
+
+    However, it is this first superset of slots associated with
+    `TableSchema' which include any notion of mappings.
     '''
-    logging.debug (f"Called `convert_schema_pre_upload (schema_path = {str (schema_path)}, ttl_override_path = {str (ttl_override_path)} yaml_rename = {yaml_rename})'")
-    
-    schema_stem = schema_path.stem
-    schema_ext  = schema_path.suffix
+    #logging.debug (f"Calling `schema_components_helper (schema = {schema})'")
+    all_slots      = schema_obj.slots.items()
+    target_columns = schema_obj.classes ["TableSchema"].slots
+    #target_pairs   = {k:(v.exact_mappings, for (k,v) in all_slots if k in target_columns}
 
-    target_schema_obj   = SchemaLoader (schema_path.name)
-    renamed_schema_path = PurePath (schema_stem + ".yaml")
+    get_mappings = lambda k, v : {
+        "name":  k
+      , "uri":   v.definition_uri
+      , "super": v.is_a
+      , "impl":  v.implements
+      , "exact": v.exact_mappings
+    }
+    target_pairs = {k:get_mappings(k,v) for (k,v) in all_slots if k in target_columns}
 
-    if (schema_ext == ".ttl" or schema_ext == ".rdf"):
-        print (f"Provided schema {schema_path.name} has an RDF (TTL/RDF-XML) extension, attempt to rename")
-        
-        if (isfile (renamed_schema_path.name) and not yaml_rename):
-            print (f"Can't normalise extension of {schema_path.name} to `.yaml' as target file {renamed_schema_path.name} already exists!")
-            print ("Override with the `-f' or `--force' flag…")
-            actual_schema_path = schema_path
-            success            = False
-        elif (isfile (renamed_schema_path.name)):
-            print (f"Normalising extension of {schema_path.name} to `.yaml' even though target file {renamed_schema_path.name} already exists.")
-            actual_schema_path = renamed_schema_path            
-            replace (schema_path.name, renamed_schema_path.name)
-            success = True
-        else:
-            print (f"Normalising extension of {schema_path.name} to `.yaml'.")
-            actual_schema_path = renamed_schema_path
-            replace (schema_path.name, renamed_schema_path.name)
-            success = True
-    else:
-        success            = True
-        actual_schema_path = schema_path
-
-    # Always overwritten:
-    if (ttl_override_path is not None):
-        target_ttl_path = ttl_override_path
-    else:
-        target_ttl_path = PurePath (schema_stem + ".ttl")
-    logging.info (f"Target turtle manifest path is {target_ttl_path}")
-        
-    if (success):
-        if (isfile (target_ttl_path)):
-            backup_ttl_path = target_ttl_path.with_suffix (".bak")
-            print (f"Target turtle manifest {target_ttl_path} already exists, backed up to {backup_ttl_path}")
-            replace (target_ttl_path, backup_ttl_path)
-        
-        logging.info ("Generating RDF from provided schema")
-        generator = RDFGenerator (schema = target_schema_obj.schema)#, schemaview = schema_view)
-
-        logging.info (f"Dumping generated RDF to {target_turtle}")
-        ttl_description = generator.serialize()
-        output_ttl = codecs.open (target_ttl_path.name, "w", "utf-8")
-        output_ttl.write (ttl_description)
-        output_ttl.close ()
-        
-    return (success, actual_schema_path, target_ttl_path)
+    properties = {
+        "title":       schema_obj.title
+      , "atomic_name": schema_obj.name
+      , "remote_path": schema_obj.id
+      , "description": str (schema_obj.description or "") # empty string meaningful
+      , "license":     schema_obj.license
+      , "keywords":    schema_obj.keywords
+      , "columns":     target_pairs
+    }
+    logging.debug (f"Extracted schema properties: {properties}")
+    return (properties)
 
 def malformed_id_helper (manifest_obj
                        , new_identifier : str

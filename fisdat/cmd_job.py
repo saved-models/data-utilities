@@ -23,7 +23,7 @@ Column descriptions have three elements:
    it is always well-known.
 3. The table refenenced is local to the manifest file, so it *should*
    always have a URI leading with the base prefix of the manifest file.
-''' 
+'''
 
 def manifest_to_template (manifest       : str
                         , template       : str

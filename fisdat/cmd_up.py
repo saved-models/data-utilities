@@ -15,15 +15,18 @@ import time
 import uuid
 
 from linkml.generators.pythongen     import PythonGenerator
+from linkml.generators.rdfgen        import RDFGenerator
 from linkml.utils.schema_builder     import SchemaBuilder
+from linkml.utils.schemaloader       import SchemaLoader
 from linkml.validator                import validate_file
 from linkml.validator.report         import Severity, ValidationResult, ValidationReport
-from linkml_runtime.loaders          import RDFLibLoader
+from linkml_runtime.dumpers          import RDFLibDumper
+from linkml_runtime.loaders          import YAMLLoader
 from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
 from fisdat            import __version__, __commit__
 from fisdat.ns         import CSVW
-from fisdat.utils      import fst, extension_helper, job_table, schema_to_ttl
+from fisdat.utils      import fst, extension_helper, job_table
 from fisdat.data_model import ManifestDesc
 
 ## data read/write buffer size, 1MB
@@ -69,39 +72,8 @@ def source () -> str:
     logging.info (f"GCP account e-mail: {res}")
     return res
 
-# Can't type this as we haven't compiled the model to Python data-classes yet
-# Instead use the horrible target_class thing below
-def load_manifest (data_model_uri : str,
-                   manifest_path  : PurePath):
-    '''
-    Note that this duplicates some of the code in cmd_dat.py, since
-    loading the schema is a part of the `append_manifest()' function.
-
-    The data-model provides a JSON-LD context and/or a `SchemaView'
-    object, which is necessary for serialising JSON-LD and RDF/TTL.
-    
-    The problem is that that function needs py_data_model_module,
-    as well. The way to fix this is to make use of the Python
-    data-model as a class, which will enable us to avoid serialising
-    the py_data_model &c.
-    '''
-    manifest     = str (manifest_path)
-    manifest_ext = extension_helper (manifest_path)
-
-    logging.debug (f"Called `load_manifest (data_model_uri = {data_model_uri}, manifest_path = {manifest})'")
-    py_data_model_view = SchemaView (data_model_uri)
-    
-    if (manifest_ext != "rdf"):
-        logging.info (f"Warning: target extension has a .{manifest_ext} extension, but will actually be serialised as RDF/TTL")
-
-    loader            = RDFLibLoader ()
-    original_manifest = loader.load (source       = manifest
-                                   , target_class = ManifestDesc
-                                   , schemaview   = py_data_model_view)
-    return (original_manifest)
-
-def prep_index(manifest_path : str
-             , index_name    : str
+def prep_index (manifest_path : str
+              , index_name    : str
     ) -> str:
     '''
     Echo the manifest file name to .index or other file.
@@ -114,6 +86,155 @@ def prep_index(manifest_path : str
     output_index.close ()
 
     return (index_name)
+
+# To-do: add fallback? Not added since it complicates things
+def convert_feasibility (input_path : PurePath
+                       , target_ext : str
+                       , force      : bool = True) -> bool:
+    '''
+    Helper function which returns whether a given filesystem operation is
+    feasible.
+
+    This doesn't do the write operation proper because it is useful both
+    when renaming a file extension named wrongly (YAML data named `.ttl'
+    or similar), and when dumping to a target file.
+    
+    It is unclear about whether some sort of fallback behaviour is desirable
+    '''
+    logging.debug (f"Called `convert_feasibility (input_path = {input_path}, target_ext = {target_ext}, force = {force})'")
+    input_stem  = input_path.stem
+    input_ext   = extension_helper (input_path)
+    target_path = f"{input_stem}.{target_ext}"
+    
+    if (target_ext == input_ext):
+        print (f"Target extension {target_ext} is same as input, won't do anything")
+        stage_write = (False, target_path)
+    elif (not isfile (target_path)):
+        print (f"Target file {target_path} doesn't exist, so overwrite")
+        stage_write = (True, target_path)
+    elif (isfile (target_path) and force):
+        print (f"Target file {target_path} exists, and force-overwrite is set, so overwrite")
+        stage_write = (True, target_path)
+    else: #elif (isfile (target_file) and not force):
+        print (f"Target file {target_path} exists, but force-overwrite is not set, so don't overwrite!")
+        stage_write = (False, target_path)
+
+    return (stage_write)
+
+def coalesce_schema (schema_path_yaml : str, dry_run : bool = False) -> (bool, str):
+    '''
+    Convert YAML schema to turtle equvialent
+    '''
+    logging.debug (f"Called `coalesce_schema (schema_path_yaml = {schema_path_yaml}'")
+
+    (feasible, schema_path_ttl) = convert_feasibility (input_path = PurePath (schema_path_yaml)
+                                                     , target_ext = "ttl"
+                                                     , force      = True)
+    if (dry_run and feasible):
+        print (f"Would have converted schema from YAML {schema_path_yaml} to TTL {schema_path_ttl}")
+        return (True, schema_path_ttl)
+    elif (feasible):
+        print (f"Proceed with loading schema {schema_path_yaml}")
+        target_schema_obj = SchemaLoader (schema_path_yaml)
+        
+        logging.info ("Generating RDF from provided schema")
+        generator = RDFGenerator (schema = target_schema_obj.schema)#, schemaview = schema_view)
+
+        logging.info (f"Dumping generated RDF to {schema_path_ttl}")
+        schema_ttl_description = generator.serialize()
+        schema_output_ttl = codecs.open (schema_path_ttl, "w", "utf-8")
+        schema_output_ttl.write (schema_ttl_description)
+        schema_output_ttl.close ()
+
+        return (True, schema_path_ttl)
+    else:
+        print (f"Conversion of schema from YAML {manifest_obj.schema_path_yaml} to TTL {sch_conv} is not feasible!")
+        return (False, schema_path_ttl)
+
+def coalesce_manifest (manifest_path_yaml : str
+                     , data_model_uri     : str
+                     , prefixes           : dict[str, str]
+                     , gcp_source         : str
+                     , dry_run            : bool = False) -> (bool, ManifestDesc, str):
+    '''
+    The YAML files are provided and edited locally, but we can't process
+    these with non-Python tooling. This function converts schemata
+    described in the manifest to turtle, then converts the manifest
+    itself to turtle.
+    '''
+    logging.debug (f"Called `coalesce_manifest (manifest_path_yaml = {manifest_path_yaml}, data_model_uri = {data_model_uri}, prefixes = {prefixes}, gcp_source = {gcp_source})'")
+    
+    if not isfile (manifest_path_yaml):
+        raise ValueError(f"No such file: {manifest_path_yaml}")
+    
+    # Start by loading the manifest
+    loader = YAMLLoader   ()
+    dumper = RDFLibDumper ()
+
+    py_data_model_view = SchemaView (data_model_uri)
+    
+    manifest_obj = loader.load (source       = manifest_path_yaml
+                              , target_class = ManifestDesc)
+
+    # Check early that the two operations are feasible (for returning if --dry-run)
+    (manifest_feasible, manifest_path_ttl) = convert_feasibility (
+        input_path = PurePath (manifest_path_yaml)
+      , target_ext = "ttl"
+      , force      = True
+    )
+    
+    # Order slightly iffy, but schema conversion is not a prerequisite of the manifest conversion
+    if (dry_run):
+        for tab in manifest_obj.tables:
+            (schema_success, path_ttl) = coalesce_schema (tab.schema_path_yaml, dry_run = True)
+            tab.schema_path_ttl        = path_ttl
+            
+        if (manifest_feasible):
+            return (True, manifest_obj, manifest_path_ttl)
+        else:
+            return (False, manifest_obj, manifest_path_ttl)
+    else:
+        for table in manifest_obj.tables:
+            # Start by subbing in successfully-serialised TTL schemata
+            # Useful print statements in `coalesce_schema()' function
+            (schema_success, path_ttl) = coalesce_schema (table.schema_path_yaml)
+            if (schema_success):
+                table.schema_path_ttl = path_ttl
+
+            # Now check hashes of resources
+            table_uri = table.resource_path
+            print (f"Checking {table_uri} ...")
+
+            prereq_check = isfile (table_uri)
+        
+            if (not prereq_check):
+                print (f"Error: target file {table_uri} does not exist")
+            else:
+                with open (table_uri, "rb") as fp:
+                    data = fp.read ()
+                    hash = sha384  (data)
+                
+                    if hash.hexdigest() != table.resource_hash:
+                        raise ValueError(f"{table_uri} has changed, please revalidate with `fisdat'")
+                
+        # Proceed to conversion of manifest object proper to 
+        if (manifest_feasible):
+            if (dry_run):
+                print (f"Would have converted manifest from YAML {manifest_path_yaml} to TTL {manifest_path_ttl}")
+            else:
+                # Equivalent of dumping JSON in the old CLI:
+                print (job_table (manifest_obj, preamble = False, mode = 'r'))
+
+            # Not actually implemented in data model yet
+            #manifest_obj.source = gcp_source
+
+            dumper.dump (manifest_obj, manifest_path_ttl
+                       , schemaview = py_data_model_view
+                       , prefix_map = prefixes)
+            return (True, manifest_obj, manifest_path_ttl)
+        else:
+            print ("Conversion of YAML manifest object to TTL was not successful!")
+            return (False, manifest_obj, manifest_path_ttl)
     
 def cli () -> None:
     """
@@ -143,6 +264,12 @@ def cli () -> None:
     parser.add_argument ("--data-model-uri"
                        , help     = "Data model YAML specification URI"
                        , default  = "https://marine.gov.scot/metadata/saved/schema/meta.yaml")
+    parser.add_argument ("--base-prefix"
+                       , help    = "@base prefix from which job manifest, job results, data and descriptive statistics may be served."
+                       , default = "https://marine.gov.scot/metadata/saved/rap/")
+    parser.add_argument ("--saved-prefix"
+                       , help     = "`saved' data model schema prefix"
+                       , default  = "https://marine.gov.scot/metadata/saved/schema/")
     parser.add_argument ("-n", "--no-upload", "--dry-run"
                        , help     = "Don't upload files"
                        , action   = "store_true")
@@ -162,61 +289,49 @@ def cli () -> None:
     
     logging.basicConfig (level  = args.log_level
                        , format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'")
-    
-    # Need this to pass verbosity= into source()
-    if (args.source is None):
-        data_source_email = source ()
-    else:
-        data_source_email = args.source
-
-    if not isfile(args.manifest):
-        raise ValueError(f"No such file: {args.manifest}")
-
+        
     if args.unsecure:
         from rdflib import _networking
         from fisdat import kludge
 
         _networking._urlopen = kludge._urlopen
 
-    manifest_path   = PurePath (args.manifest)
-    manifest_obj    = load_manifest (args.data_model_uri, manifest_path)
-        
-    # Equivalent of dumping JSON in the old CLI:
-    print (job_table (manifest_obj, preamble=False, mode='r'))
+    # Sub this into `coalesce_manifest()'
+    #if (args.source is None):
+    #    data_source_email = source ()
+    #else:
+    #    data_source_email = args.source
 
-    manifest_obj.source = data_source_email
-    
-    mdir = dirname (args.manifest)
-    if (mdir != ""):
-        chdir (mdir)
+    prefixes = { "_base": args.base_prefix
+               , "saved": args.saved_prefix}
 
-    for table in manifest_obj.tables:
-        target_uri = table.resource_path
-        print (f"Checking {target_uri} ...")
+    (test_manifest, manifest_obj, manifest_path_ttl) = coalesce_manifest (
+            manifest_path_yaml = args.manifest
+          , data_model_uri     = args.data_model_uri
+          , prefixes           = prefixes
+          , gcp_source         = data_source_email
+          , dry_run            = args.no_upload
+        )
 
-        prereq_check = isfile (target_uri)
-        
-        if (not prereq_check):
-            print (f"Error: target file {target_uri} does not exist")
+    if (test_manifest):
+        if (args.no_upload):
+            index = ".index"
         else:
-            with open (target_uri, "rb") as fp:
-                data = fp.read ()
-                hash = sha384  (data)
-                
-                if hash.hexdigest() != table.resource_hash:
-                    raise ValueError(f"{target_uri} has changed, please revalidate with `fisdat'")        
+            index = prep_index (args.manifest, args.index)
+     
+        resources     = [table.resource_path    for table in manifest_obj.tables]
+        schemata_ttl  = [table.schema_path_ttl  for table in manifest_obj.tables]
+        schemata_yaml = [table.schema_path_yaml for table in manifest_obj.tables]
+        time_stamp    = datetime.today ().strftime ('%Y%m%d')
+        short_name    = data_source_email.split ('@') [0]
 
-    index      = prep_index (args.manifest, args.index)
-    data       = [table.resource_path for table in manifest_obj.tables]
-    schemas    = [table.schema_path   for table in manifest_obj.tables]
-    time_stamp = datetime.today ().strftime ('%Y%m%d')
-    short_name = manifest_obj.source.split('@')[0]
-    url        = upload_files (args
-                            , [basename (args.manifest), index] + data + schemas
-                            , short_name, time_stamp
-                            , args.no_upload)
+        staging_files = [basename (args.manifest)
+                       , manifest_path_ttl
+                       , index] + resources + schemata_yaml + schemata_ttl
+        
+        url = upload_files (args, staging_files, short_name, time_stamp, args.no_upload)
 
-    if (not args.no_upload):
-        print(f"Successfully uploaded your data-set to {url}")
-    else:
-        print(f"Would have uploaded your data-set to {url}")
+        if (not args.no_upload):
+            print(f"Successfully uploaded your data-set to {url}")
+        else:
+            print(f"Would have uploaded your data-set to {url}")

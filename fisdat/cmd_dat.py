@@ -16,7 +16,7 @@ import logging
 from fisdat            import __version__, __commit__
 from fisdat.data_model import JobDesc, TableDesc, ManifestDesc
 from fisdat.ns         import CSVW
-from fisdat.utils      import fst, error, extension_helper, job_table, schema_components_helper, expand_schema_components, take, validation_helper
+from fisdat.utils      import fst, error, extension_helper, job_table, schema_components_helper, take, validation_helper
 
 def dump_wrapper (py_obj
                 , data_model_view : SchemaView
@@ -43,7 +43,7 @@ def dump_wrapper (py_obj
     namespaces = data_model_view.namespaces()
     logging.info (f"Namespaces in the data model are {namespaces}")
 
-    if (mode == "rdf_ttl_manifest"):
+    if (mode == "ttl"):
         if (output_path_ext != "rdf" and output_path_ext != "ttl"):
             logging.info (f"Warning: target extension has a .{output_path_ext} extension, but will actually be serialised as RDF/TTL")
         dumper = RDFLibDumper ()
@@ -54,7 +54,7 @@ def dump_wrapper (py_obj
 
         return (True)            
         
-    elif (mode == "yaml_template"):
+    elif (mode == "yaml"):
         if (output_path_ext != "yaml" and output_path_ext != "yml"):
             logging.info (f"Warning: target extension has a .{output_path_ext} extension, but will actually be serialised as YAML")
         dumper = YAMLDumper ()
@@ -73,8 +73,8 @@ def append_job_manifest (data           : str
                        , data_model_uri : str
                        , manifest       : str
                        , manifest_title : str
-                       , mode           : str
-                       , scoped_columns : [str]
+                       , append_mode    : str
+                       , serialise_mode : str
                        , prefixes       : dict[str, str]) -> bool:
     '''
     Given a data file, a file schema, and the parent data model, build
@@ -83,7 +83,7 @@ def append_job_manifest (data           : str
     are ncessary when serialising JSON-LD and RDF. It can point to
     job.yaml or the meta-model which pulls it in at the top-level.
     '''
-    logging.debug (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model_uri = {data_model_uri}, manifest = {manifest}, manifest_title = {manifest_title}, mode = {mode}, scoped_columns = {scoped_columns}, prefixes = {prefixes})'")
+    logging.debug (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model_uri = {data_model_uri}, manifest = {manifest}, manifest_title = {manifest_title}, append_mode = {append_mode}, serialise_mode = {serialise_mode}, prefixes = {prefixes})'")
     
     manifest_path   = PurePath (manifest)
     manifest_ext    = extension_helper (manifest_path)
@@ -122,7 +122,7 @@ def append_job_manifest (data           : str
     )
     
     logging.info ("Proceeding with manifest initialise or append operation")
-    if (mode == "initialise"):        
+    if (append_mode == "initialise"):        
         logging.info (f"Initialising manifest {manifest}")
         manifest_skeleton = ManifestDesc (
               atomic_name   = manifest_title
@@ -134,19 +134,34 @@ def append_job_manifest (data           : str
                              , data_model_view = py_data_model_view
                              , output_path     = manifest_path
                              , prefixes        = prefixes
-                             , mode            = "rdf_ttl_manifest")
-        
-        print (job_table (manifest_skeleton, manifest, preamble = True))
+                             , mode            = serialise_mode)
+
+        # Important to catch this!
+        if (result):
+            print (job_table (manifest_skeleton, manifest, preamble = True))
 
     else:
         logging.info (f"Reading existing manifest {manifest}")
-        loader          = RDFLibLoader ()
-        extant_manifest = loader.load (source       = manifest
-                                     , target_class = ManifestDesc
-                                     , schemaview   = py_data_model_view)
+
+        if (serialise_mode == "ttl"):
+            loader          = RDFLibLoader ()
+            extant_manifest = loader.load (source       = manifest
+                                         , target_class = ManifestDesc
+                                         , schemaview   = py_data_model_view)
+        elif (serialise_mode == "yaml"):
+            loader          = YAMLLoader ()
+            extant_manifest = loader.load (source       = manifest
+                                         , target_class = ManifestDesc)
+
+        else:
+            print ("Unrecognised serialisation mode for `append_job_manifest()', cannot load extant object")
+            return (False)
+
+            
         logging.info (f"Checking that data file {data} does not already exist in manifest")
         extant_paths      = map (lambda k : PurePath (k.resource_path).name, extant_manifest.tables)
         check_extant_path = data_path.name in extant_paths
+        
         if (check_extant_path):
             print (f"Data-file {data} was already in the table, cannot add!")
             result = (not check_extant_path) and (not check_extant_name)
@@ -180,7 +195,7 @@ def append_job_manifest (data           : str
                                  , data_model_view = py_data_model_view
                                  , output_path     = manifest_path
                                  , prefixes        = prefixes
-                                 , mode            = "rdf_ttl_manifest")
+                                 , mode            = serialise_mode)
 
             print (job_table (staging_manifest, manifest, preamble = True))
             
@@ -192,14 +207,14 @@ def manifest_wrapper (data           : str
                     , manifest       : str
                     , manifest_title : str
                     , validate       : bool
-                    , scoped_columns : list[str]
-                    , prefixes       : dict[str, str]) -> bool:
+                    , prefixes       : dict[str, str]
+                    , serialise_mode : str) -> bool:
     '''
     Simple wrapper for the two modes of `append_job_manifest' based on
     whether the manifest file exists (optional) and whether the schema
     and data file exists (obviously mandatory).
     '''
-    logging.debug (f"Called `manifest_wrapper (data = {data}, schema = {schema}, data_model_uri = {data_model_uri}, manifest = {manifest}, manifest_title = {manifest_title}, validate = {validate}, scoped_columns = {scoped_columns}, prefixes = {prefixes})'")
+    logging.debug (f"Called `manifest_wrapper (data = {data}, schema = {schema}, data_model_uri = {data_model_uri}, manifest = {manifest}, manifest_title = {manifest_title}, validate = {validate}, prefixes = {prefixes})'")
     logging.debug (f"Checking that input data {data} and schema {schema} files exist")
     
     prereq_check = isfile (data) and isfile (schema)
@@ -214,14 +229,24 @@ def manifest_wrapper (data           : str
         if (validation_check):
             if (isfile (manifest)):
                 logging.info (f"Manifest exists, appending to manifest {manifest}")
-                result = append_job_manifest (data, schema, data_model_uri
-                                            , manifest, manifest_title, "append"
-                                            , scoped_columns, prefixes)
+                result = append_job_manifest (data           = data
+                                            , schema         = schema
+                                            , data_model_uri = data_model_uri
+                                            , manifest       = manifest
+                                            , manifest_title = manifest_title
+                                            , append_mode    = "append"
+                                            , serialise_mode = serialise_mode
+                                            , prefixes       = prefixes)
             else:
                 logging.info (f"Manifest does not exist, creating new manifest {manifest}")
-                result = append_job_manifest (data, schema, data_model_uri
-                                            , manifest, manifest_title, "initialise"
-                                            , scoped_columns, prefixes)
+                result = append_job_manifest (data           = data
+                                            , schema         = schema
+                                            , data_model_uri = data_model_uri
+                                            , manifest       = manifest
+                                            , manifest_title = manifest_title
+                                            , append_mode    = "initialise"
+                                            , serialise_mode = serialise_mode
+                                            , prefixes       = prefixes)
             return (result)
         else:
             '''
@@ -238,8 +263,6 @@ def manifest_wrapper (data           : str
             print (f"Schema file {schema} does not exist!")
         return (prereq_check)
 
-
-    
 def cli () -> None:
     print (f"This is fisdat version {__version__}, commit {__commit__}")
     
@@ -247,21 +270,21 @@ def cli () -> None:
     verbgr = parser.add_mutually_exclusive_group (required = False)
     parser.add_argument ("schema"  , help = "Schema file/URI (YAML)", type = str)
     parser.add_argument ("csvfile" , help = "CSV data file", type = str)
-    parser.add_argument ("manifest", help = "Manifest file", type = str)
+    parser.add_argument ("manifest", help = "Target manifest file (will overwrite)", type = str)
     parser.add_argument ("-n", "--no-validate", "--dry-run"
                        , help     = "Disable validation"
                        , action   = "store_true")
     parser.add_argument ("--data-model-uri"
                        , help     = "Data model YAML specification URI"
                        , default  = "https://marine.gov.scot/metadata/saved/schema/meta.yaml")
-    parser.add_argument ("--job-scope"
-                       , help     = "Use these columns to fill out example job section in initial manifest"
-                       , metavar  = 'COL'
-                       , nargs    = '+'
-                       , default  = [])
     parser.add_argument ("--manifest-title"
                        , help     = "Name of the manifest title root"
                        , default  = "RootManifest")
+    parser.add_argument ("--serialisation"
+                       , help     = "Serialise manifest as YAML or serialise manifest as RDF/TTL"
+                       , type     = str
+                       , choices  = ["yaml", "ttl"]
+                       , default  = "yaml")
     parser.add_argument ("--base-prefix"
                        , help     = "@base prefix from which job manifest, job results, data and descriptive statistics may be served."
                        , default  = "https://marine.gov.scot/metadata/saved/rap/")
@@ -286,8 +309,6 @@ def cli () -> None:
     logging.basicConfig (level  = args.log_level
                        , format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'")
 
-    logging.debug (f"Columns selected to bring into job scope are f{args.job_scope}")
-
     prefixes = { "_base": args.base_prefix
                , "saved": args.saved_prefix }
 
@@ -297,6 +318,6 @@ def cli () -> None:
                     , manifest       = args.manifest
                     , manifest_title = args.manifest_title
                     , validate       = not args.no_validate
-                    , scoped_columns = args.job_scope
-                    , prefixes       = prefixes)
+                    , prefixes       = prefixes
+                    , serialise_mode = args.serialisation)
 
