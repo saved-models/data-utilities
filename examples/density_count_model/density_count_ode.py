@@ -9,6 +9,14 @@ from scipy.integrate import ode as solve
 from scipy.optimize import minimize, Bounds
 from scipy.stats import wasserstein_distance
 
+
+'''
+See https://github.com/linkml/linkml/issues/1994
+'''
+NA_NONE = [" ", "", "#N/A", "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN"
+         , "-NaN", "-nan", "1.#IND", "1.#QNAN", "<NA>", "N/A", "NA"
+         , "NULL", "NaN", "None", "n/a", "nan", "null"]
+
 def derivative(k_inf, acc, density, volume):
     """
     Return a function implementing the ODE version of the sea lice accumulation
@@ -49,7 +57,7 @@ def cagedist(filename, column):
             if colno is None:
                 colno = row.index(column)
                 continue
-            if row[colno] == "NA":
+            if row[colno] in NA_NONE:
                 continue
             total = int(row[colno])
             count[total] = count.get(total, 0) + 1
@@ -109,7 +117,7 @@ def density(filename, timecol, denscol, fmt=None):
                 timeno = row.index(timecol)
                 densno = row.index(denscol)
                 continue
-            if row[timeno] == "NA" or row[densno] == "NA":
+            if row[timeno] in NA_NONE or row[densno] in NA_NONE:
                 continue
             if fmt is not None:
                 time = datetime.strptime(row[timeno], fmt)
