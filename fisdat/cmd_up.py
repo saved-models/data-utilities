@@ -72,17 +72,17 @@ def source () -> str:
     logging.info (f"GCP account e-mail: {res}")
     return res
 
-def prep_index (manifest_path : str
+def prep_index (manifest_path_ttl : str
               , index_name    : str
     ) -> str:
     '''
     Echo the manifest file name to .index or other file.
     This avoids hard-coding the manifest title.
     '''
-    logging.debug (f"Called `prep_index (manifest_path = {manifest_path}, index_name = {index_name})'")
+    logging.debug (f"Called `prep_index (manifest_path_ttl = {manifest_path_ttl}, index_name = {index_name})'")
 
     output_index = codecs.open (index_name, "w", "utf-8")
-    output_index.write (manifest_path)
+    output_index.write (manifest_path_ttl)
     output_index.close ()
 
     return (index_name)
@@ -297,10 +297,10 @@ def cli () -> None:
         _networking._urlopen = kludge._urlopen
 
     # Sub this into `coalesce_manifest()'
-    #if (args.source is None):
-    #    data_source_email = source ()
-    #else:
-    #    data_source_email = args.source
+    if (args.source is None):
+        data_source_email = source ()
+    else:
+        data_source_email = args.source
 
     prefixes = { "_base": args.base_prefix
                , "saved": args.saved_prefix}
@@ -317,7 +317,7 @@ def cli () -> None:
         if (args.no_upload):
             index = ".index"
         else:
-            index = prep_index (args.manifest, args.index)
+            index = prep_index (manifest_path_ttl, args.index)
      
         resources     = [table.resource_path    for table in manifest_obj.tables]
         schemata_ttl  = [table.schema_path_ttl  for table in manifest_obj.tables]

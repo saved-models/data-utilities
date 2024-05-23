@@ -1,5 +1,5 @@
 # Auto generated from meta.yaml by pythongen.py version: 0.0.1
-# Generation date: 2024-05-17T16:31:26
+# Generation date: 2024-05-23T13:29:03
 # Schema: meta
 #
 # id: https://marine.gov.scot/metadata/saved/schema/meta/
