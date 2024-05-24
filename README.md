@@ -1,12 +1,18 @@
 # Fish Data Utilities
 
-## Pre-requisites:
+## Pre-requisites / caveats:
 
-After we integrated LinkML, there is an external dependency on our
-work-in-progress data model. This is stored in an external repository,
-so make sure to run the following:
+A previous version of this document had a git submodule comprising our
+data model, based on LinkML. There is no longer an external dependency
+on this, nor any other git submodules, and the directory which it 
+occupied should be removed:
 
-    git submodule init && git submodule update
+    rm -r ./fisdat/data_model/
+
+A further element of this is that the manifest files have changed format
+again, to a YAML file which can be edited directly. When uploading, these
+are converted to a machine-readable format, but all of the tooling uses
+the YAML format, now. Refer to the updated examples below.
 
 This is a Python package. It can be installed in any of the usual ways
 for Python packages, perhaps using a virtual environment like so:
@@ -34,12 +40,12 @@ run,
 
 	fisdat sentinel_cages_sampling.yaml \
 	    sentinel_cages_cleaned.csv \
-		manifest.ttl
+		manifest.yaml
 
 which will result in a slew of warnings about entries in the file
 that do not match the datatype specified in the schema (adding the
 `-s` or `--strict` flag will turn these warnings into errors) and
-result in a new or updated `manifest.json` file which serves to
+result in a new or updated `manifest.yaml` file which serves to
 indicate which data belongs to which schema.
 
 If you do /not/ wish to validate the data file, perhaps because
@@ -63,7 +69,7 @@ about running state, e.g.:
 
 	fisdat sentinel_cages_sampling.yaml \
 	    sentinel_cages_cleaned.csv \
-		manifest.ttl \
+		manifest.yaml \
 		--verbose
 
 To see even more information, use the `--extra-verbose` (or `-vv` for 
@@ -71,7 +77,7 @@ short), e.g.:
 
 	fisdat sentinel_cages_sampling.yaml \
 	    sentinel_cages_cleaned.csv \
-		manifest.ttl \
+		manifest.yaml \
 		--extra-verbose
 
 Program version number and associated git commit is always printed.
@@ -82,7 +88,7 @@ Program version number and associated git commit is always printed.
 Once the manifest is full, uploading the data can be done with the
 program `fisup`. It is used like this,
 
-	fisup manifest.ttl
+	fisup manifest.yaml
 
 You will need to set an environment variable to where you have
 saved your access credentials. It needs to be the full path to
@@ -98,10 +104,10 @@ generated. It is a good idea to make a note of the generated
 path. For example, from the `examples/farm_site_af_source` 
 directory,
 
-	$ fisdat fo_farms.yaml fo_farms.csv manifest.ttl
-	$ fisdat fo_lice.yaml fo_lice_data.csv manifest.ttl           
-	$ fisup manifest.ttl
-	Uploading gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562/manifest.ttl ...
+	$ fisdat fo_farms.yaml fo_farms.csv manifest.yaml
+	$ fisdat fo_lice.yaml fo_lice_data.csv manifest.yaml
+	$ fisup manifest.yaml
+	Uploading gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562/manifest.yaml ...
 	Uploading gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562/fo_farms.csv ...
 	Uploading gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562/fo_lice_data.csv ...
 	Successfully uploaded your dataset to gs://saved-fisdat/2d6bf8f4-c6cc-11ee-9969-7aa465704562
@@ -125,7 +131,7 @@ printed.
 Many of the LinkML schema fields are vague. 
 
 ### The `id` and `name` fields
-The `id` field must be an URI, pointing somewhere. This does not need to be active, e.g. I put 'http://localhost/marinescot/sentinel_cages/sampling' in one of the examples.
+The `id` field must be an URI, pointing somewhere. This does not need to be active, e.g. I put 'https://marine.gov.scot/metadata/saved/marinescot/sentinel_cages/sampling' in one of the examples.
 
 The `name` field is a short identifier or 'atom'. It cannot have spaces or most special characters, albeit underscores are valid. Put longer text titles in the `title` field, and longer still free text descriptions in the `description` field. (Unlike `id` and `name`, the `description` field is optional.)
 
@@ -133,7 +139,7 @@ The `name` field is a short identifier or 'atom'. It cannot have spaces or most 
 
 Prefixes in the LinkML schema are used as the start of URIs in the generated schema. In the sentinel cages YAML example, we define `saved` as one such prefix, and then set it as the default prefix with the `default_prefix` keyword. The effect of this is that, by default, the classes and slots have a URI prepended to them in the generated documentation, which is this default prefix.
 
-For example, suppose we declared a slot called `infection_pressure`, declare a prefix `saved_new` with URI "http://localhost/saved_new/", and set `saved_new` as the value of `default_prefix`. The slot `infection_pressure` would then be given the URI `saved_new:infection_pressure` which would expand to "http://localhost/saved_new/infection_pressure".
+For example, suppose we declared a slot called `infection_pressure`, declare a prefix `saved_new` with URI "https://marine.gov.scot/metadata/saved/new_schema/", and set `saved_new` as the value of `default_prefix`. The slot `infection_pressure` would then be given the URI `saved_new:infection_pressure` which would expand to "https://marine.gov.scot/metadata/saved/new_schema/infection_pressure".
 
 The imports take a prefix and import resources from it. It is sufficient to leave this as in the examples for now, as `linkml:types` and our own schema declare everything we need.
 
