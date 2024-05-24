@@ -1,0 +1,27 @@
+id: http://localhost/marinescot/cagedata
+name: time_density_simple
+title: "placeholder time/density description"
+prefixes:
+  linkml: https://w3id.org/linkml/
+  saved: http://localhost/saved/schema/
+  marinescot: http://localhost/marinescot/
+imports:
+  - linkml:types
+  - saved:core
+default_prefix: marinescot
+modified_by: saved
+
+slots:
+  density:
+    range: float
+  time:
+    range: integer
+
+classes:
+  TableSchema:
+    implements:
+      - linkml:TwoDimensionalArray
+      - linkml:ColumnOrderedArray
+    slots:
+      - density
+      - time

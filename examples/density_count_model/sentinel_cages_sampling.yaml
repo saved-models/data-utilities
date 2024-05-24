@@ -1,0 +1,264 @@
+id: http://localhost/marinescot/sentinel_cages/sampling
+name: sampling
+title: "Sentinel cages sampling information schema"
+prefixes:
+  linkml: https://w3id.org/linkml/
+  saved: http://localhost/saved/schema/
+  marinescot: http://localhost/marinescot/
+imports:
+  - linkml:types
+  - saved:core
+default_prefix: marinescot
+license: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+keywords:
+  - sea lice
+  - sampling data
+created_by: marinescot
+modified_by: saved
+last_updated_on: "2024-03-24"
+
+# head -n1 Sentinel_cage_sampling_info_update_01122022.csv | tr ',' '\n'
+#
+# Survey.series
+# Deployment.date
+# Recovery.date
+# Sampling.Note
+# Sampled.Fish.Number
+# Cage.Number
+# Fish.Length.mm
+# Fish.Weight.g
+# Fish.Species
+# HEAD_OPER
+# MOUTH_GILLS
+# ANT.DORS
+# POST.DORS
+# ANT.VENT
+# POST.VENT
+# DORSAL
+# PECTORAL
+# PELVIC
+# ANAL
+# ADIPOSE
+# CAUDAL
+# BAG
+# BIN
+# TOTAL
+
+slots:
+
+  Survey.series:
+    description:    An identifying name for the survey series
+    range:          string
+    is_a:           column_descriptive
+    exact_mappings: saved:series
+    implements:     linkml:elements
+    required:       true
+
+  Deployment.date:
+    description:    Date cage was stocked with fish
+    range:          string
+    is_a:           column_descriptive
+    exact_mappings:
+      - saved:date
+      - saved:deployment_date
+    implements:     linkml:elements
+    required:       true
+    
+  Recovery.date:
+    description:    Date samples were taken from cage
+    range:          string
+    is_a:           column_descriptive
+    exact_mappings:
+      - saved:date
+      - saved:recovery_date
+    implements:     linkml:elements
+    required:       true
+
+  Sampling.Note:
+    description:    Notes on issues with sampling
+    range:          string
+    is_a:           column_descriptive
+    exact_mappings: saved:notes
+    implements:     linkml:elements
+    required:       false
+    
+  Sampled.Fish.Number:
+    description:    Numeric identifier within a cage of sampled fish
+    any_of:
+      - range:      integer
+      - range:      string
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+    
+  Cage.Number:
+    description:    A unique identifier for each cage which links back to station information. Not necessarily a number.
+    any_of:
+      - range:      integer
+      - range:      string
+    is_a:           column_descriptive
+    exact_mappings: saved:cage_id
+    implements:     linkml:elements
+    required:       true
+
+  Fish.Length.mm:
+    description:    Length of fish expressed in mm
+    range:          float
+    is_a:           column_collected
+    exact_mappings: saved:fish_length
+    implements:     linkml:elements
+    required:       false
+
+  Fish.Weight.g:
+    description:    Weight of fish expressed in grams
+    range:          float
+    is_a:           column_collected
+    exact_mappings: saved:fish_mass
+    implements:     linkml:elements
+    required:       false
+    
+  Fish.Species:
+    description:    Common name of species sampled (in this case, Salmon refers to Salmosalar only)
+    range:          string
+    is_a:           column_collected
+    exact_mappings: saved:fish_species_common
+    broad_mappings: saved:fish_species_scientific
+    implements:     linkml:elements
+    required:       false
+
+  HEAD_OPER:
+    description:    Count of lice on the head of the fish
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  MOUTH_GILLS:
+    description:    Count of lice on the mouth or gills of the fish
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  ANT.DORS:
+    description:    Count of lice on the anterior dorsum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  POST.DORS:
+    description:    Count of lice on the posterior dorsum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  ANT.VENT:
+    description:    Count of lice on the anterior ventrum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  POST.VENT:
+    description:    Count of lice on the posterior ventrum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  DORSAL:
+    description:    Count of lice on the dorsum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  PECTORAL:
+    description:    Count of lice on the pectorum
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  PELVIC:
+    description:    Count of lice on the pelvis
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  ANAL:
+    description:    Count of lice on the anus
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  ADIPOSE:
+    description:    Count of lice on the adipose tissue
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  CAUDAL:
+    description:    Count of lice on the caudal tissue
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+
+  BAG:
+    description:    
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+    
+  BIN:
+    description:    
+    range:          integer
+    is_a:           column_collected
+    implements:     linkml:elements
+    required:       false
+    
+  TOTAL:
+    description:    Total number of lice on the fish
+    range:          integer
+    is_a:           column_collected
+    exact_mappings: saved:lice_count_total
+    implements:     linkml:elements
+    required:       false
+
+classes:
+  TableSchema:
+    implements:
+      - linkml:TwoDimensionalArray
+      - linkml:ColumnOrderedArray
+    slots:
+      - Survey.series
+      - Deployment.date
+      - Recovery.date
+      - Sampling.Note
+      - Sampled.Fish.Number
+      - Cage.Number
+      - Fish.Length.mm
+      - Fish.Weight.g
+      - Fish.Species
+      - HEAD_OPER
+      - MOUTH_GILLS
+      - ANT.DORS
+      - POST.DORS
+      - ANT.VENT
+      - POST.VENT
+      - DORSAL
+      - PECTORAL
+      - PELVIC
+      - ANAL
+      - ADIPOSE
+      - CAUDAL
+      - BAG
+      - BIN
+      - TOTAL
