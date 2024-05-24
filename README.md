@@ -55,12 +55,16 @@ Do this for each file that should be added to the manifest.
 
 ### Dealing with missing data (important for validation)
 
-In the sentinel cages example data, empty/missing values are indicated
+In the sentinel cages example data, empty/missing values were indicated
 using the string "NA". LinkML is unable to accept these as empty (we
 have opened an issue to try and move this forward). In the meantime,
-LinkML will happily accept empty fields. In the sentinel cages data,
-we have added an example R script called `prep.R` which will read in
-the CSV, then re-export a new table with the NA string as "".
+LinkML will happily accept empty fields. 
+
+In the sentinel cages data, we have added an example R script called 
+`prep.R` which will read in the CSV, then re-export a new table with 
+the NA string as an empty field. Similarly, in the density count model,
+which partly uses the sentinel cages data, we have similarly replaced 
+the "NA" string with an empty field.
 
 ### Debugging / extra information about running state
 
