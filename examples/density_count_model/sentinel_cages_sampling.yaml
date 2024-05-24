@@ -1,10 +1,10 @@
-id: http://localhost/marinescot/sentinel_cages/sampling
+id: http://marine.gov.scot/metadata/marinescot/sentinel_cages/sampling
 name: sampling
 title: "Sentinel cages sampling information schema"
 prefixes:
   linkml: https://w3id.org/linkml/
-  saved: http://localhost/saved/schema/
-  marinescot: http://localhost/marinescot/
+  saved: https://marine.gov.scot/metadata/saved/schema/
+  marinescot: https://marine.gov.scot/metadata/marinescot/
 imports:
   - linkml:types
   - saved:core

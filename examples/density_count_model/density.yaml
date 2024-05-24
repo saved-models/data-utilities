@@ -1,10 +1,10 @@
-id: http://localhost/marinescot/cagedata
+id: https://marine.gov.scot/metadata/marinescot/cagedata/
 name: time_density_simple
 title: "placeholder time/density description"
 prefixes:
   linkml: https://w3id.org/linkml/
-  saved: http://localhost/saved/schema/
-  marinescot: http://localhost/marinescot/
+  saved: https://marine.gov.scot/metadata/saved/schema/
+  marinescot: https://marine.gov.scot/metadata/marinescot/cagedata/
 imports:
   - linkml:types
   - saved:core
