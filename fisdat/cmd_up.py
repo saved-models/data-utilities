@@ -72,17 +72,21 @@ def source () -> str:
     logging.info (f"GCP account e-mail: {res}")
     return res
 
-def prep_index (manifest_path_ttl : str
-              , index_name    : str
+def prep_index (manifest_path_yaml : str
+              , manifest_path_ttl  : str
+              , manifest_title     : str
+              , index_name         : str
     ) -> str:
     '''
     Echo the manifest file name to .index or other file.
     This avoids hard-coding the manifest title.
     '''
-    logging.debug (f"Called `prep_index (manifest_path_ttl = {manifest_path_ttl}, index_name = {index_name})'")
+    logging.debug (f"Called `prep_index (manifest_path_yaml = {manifest_path_yaml}, manifest_path_ttl = {manifest_path_ttl}, manifest_title = {manifest_title}, index_name = {index_name})'")
 
+    index_contents = f"{manifest_path_yaml}\n{manifest_path_ttl}\n{manifest_title}"
+    
     output_index = codecs.open (index_name, "w", "utf-8")
-    output_index.write (manifest_path_ttl)
+    output_index.write (index_contents)
     output_index.close ()
 
     return (index_name)
@@ -136,12 +140,12 @@ def coalesce_schema (schema_path_yaml : str, dry_run : bool = False) -> (bool, s
     elif (feasible):
         print (f"Proceed with loading schema {schema_path_yaml}")
         target_schema_obj = SchemaLoader (schema_path_yaml)
-        
-        logging.info ("Generating RDF from provided schema")
+        print ("Generating RDF from provided schema")
         generator = RDFGenerator (schema = target_schema_obj.schema)#, schemaview = schema_view)
-
-        logging.info (f"Dumping generated RDF to {schema_path_ttl}")
+        print ("Done generating RDF from provided schema, serialising")
         schema_ttl_description = generator.serialize()
+        print (f"Dumping generated RDF to {schema_path_ttl}")
+
         schema_output_ttl = codecs.open (schema_path_ttl, "w", "utf-8")
         schema_output_ttl.write (schema_ttl_description)
         schema_output_ttl.close ()
@@ -176,6 +180,8 @@ def coalesce_manifest (manifest_path_yaml : str
     manifest_obj = loader.load (source       = manifest_path_yaml
                               , target_class = ManifestDesc)
 
+    manifest_title = manifest_obj.atomic_name
+
     # Check early that the two operations are feasible (for returning if --dry-run)
     (manifest_feasible, manifest_path_ttl) = convert_feasibility (
         input_path = PurePath (manifest_path_yaml)
@@ -190,9 +196,9 @@ def coalesce_manifest (manifest_path_yaml : str
             tab.schema_path_ttl        = path_ttl
             
         if (manifest_feasible):
-            return (True, manifest_obj, manifest_path_ttl)
+            return (True, manifest_obj, manifest_path_ttl, manifest_title)
         else:
-            return (False, manifest_obj, manifest_path_ttl)
+            return (False, manifest_obj, manifest_path_ttl, manifest_title)
     else:
         for table in manifest_obj.tables:
             # Start by subbing in successfully-serialised TTL schemata
@@ -231,10 +237,10 @@ def coalesce_manifest (manifest_path_yaml : str
             dumper.dump (manifest_obj, manifest_path_ttl
                        , schemaview = py_data_model_view
                        , prefix_map = prefixes)
-            return (True, manifest_obj, manifest_path_ttl)
+            return (True, manifest_obj, manifest_path_ttl, manifest_title)
         else:
             print ("Conversion of YAML manifest object to TTL was not successful!")
-            return (False, manifest_obj, manifest_path_ttl)
+            return (False, manifest_obj, manifest_path_ttl, manifest_title)
     
 def cli () -> None:
     """
@@ -305,7 +311,7 @@ def cli () -> None:
     prefixes = { "_base": args.base_prefix
                , "saved": args.saved_prefix}
 
-    (test_manifest, manifest_obj, manifest_path_ttl) = coalesce_manifest (
+    (test_manifest, manifest_obj, manifest_path_ttl, manifest_title) = coalesce_manifest (
             manifest_path_yaml = args.manifest
           , data_model_uri     = args.data_model_uri
           , prefixes           = prefixes
@@ -315,9 +321,12 @@ def cli () -> None:
 
     if (test_manifest):
         if (args.no_upload):
-            index = ".index"
+            index = args.index
         else:
-            index = prep_index (manifest_path_ttl, args.index)
+            index = prep_index (manifest_path_yaml = args.manifest
+                              , manifest_path_ttl  = manifest_path_ttl
+                              , manifest_title     = manifest_title
+                              , index_name         = args.index)
      
         resources     = [table.resource_path    for table in manifest_obj.tables]
         schemata_ttl  = [table.schema_path_ttl  for table in manifest_obj.tables]
