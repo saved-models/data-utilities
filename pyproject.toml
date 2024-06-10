@@ -19,8 +19,8 @@ classifiers = [
 ]
 dependencies = [
         "google-cloud-storage",
-        "linkml",
-        "linkml-runtime",
+        "linkml==1.7.10",
+        "linkml-runtime==1.7.5",
         "mypy",
         "versioneer"
 ]
