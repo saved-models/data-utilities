@@ -93,7 +93,7 @@ def objective(y0, t0, t1, density, volume, weight, p_measured):
 
         dz = weight*wasserstein_distance([p_measured_zero, 1.0 - p_measured_zero],
                                               [p_simulated_zero, 1.0 - p_simulated_zero])
-        dc = wasserstein_distance(p_measured_renorm, p_simulated_renorm)
+        dc = (1-weight)*wasserstein_distance(p_measured_renorm, p_simulated_renorm)
 
         return dz + dc
     return f
@@ -142,7 +142,7 @@ def cli():
     parser.add_argument("-f", "--format", default=None, help="Time format for density data (see strptime)")
     parser.add_argument("--k_inf", type=float, default=0.002, help="Infection rate")
     parser.add_argument("--acc", type=float, default=1, help="Increase in infection rate per louse")
-    parser.add_argument("--weight", type=float, default=1.0, help="Relative weight of zeros")
+    parser.add_argument("--weight", type=float, default=0.5, help="Relative weight of zeros")
     parser.add_argument("cagedata", help="Cage data file")
     parser.add_argument("cagecolumn", help="Column in cage data file to use for counts")
     parser.add_argument("densitydata", help="Density data file")
@@ -153,6 +153,9 @@ def cli():
     y0 = np.array([100] + [0 for _ in range(1,51)])
     t0 = 0
     t1 = args.limit
+
+    if args.weight < 0 or args.weight > 1:
+        raise ValueError(f"bad value for weight ({args.weight}), should be between [0,1]")
 
     result = { "ref": {}, "test": {} }
 
