@@ -72,7 +72,7 @@ def append_job_manifest (data           : str
                        , schema         : str
                        , data_model_uri : str
                        , manifest       : str
-                       , manifest_title : str
+                       , manifest_name  : str
                        , append_mode    : str
                        , serialise_mode : str
                        , prefixes       : dict[str, str]) -> bool:
@@ -83,7 +83,7 @@ def append_job_manifest (data           : str
     are ncessary when serialising JSON-LD and RDF. It can point to
     job.yaml or the meta-model which pulls it in at the top-level.
     '''
-    logging.debug (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model_uri = {data_model_uri}, manifest = {manifest}, manifest_title = {manifest_title}, append_mode = {append_mode}, serialise_mode = {serialise_mode}, prefixes = {prefixes})'")
+    logging.debug (f"Called `append_job_manifest (data = {data}, schema = {schema}, data_model_uri = {data_model_uri}, manifest = {manifest}, manifest_name = {manifest_name}, append_mode = {append_mode}, serialise_mode = {serialise_mode}, prefixes = {prefixes})'")
     
     manifest_path   = PurePath (manifest)
     manifest_ext    = extension_helper (manifest_path)
@@ -125,7 +125,7 @@ def append_job_manifest (data           : str
     if (append_mode == "initialise"):        
         logging.info (f"Initialising manifest {manifest}")
         manifest_skeleton = ManifestDesc (
-              atomic_name   = manifest_title
+              atomic_name   = manifest_name
             , tables        = [staging_table]
             , jobs          = [initial_example_job]
             , local_version = __version__
@@ -205,7 +205,7 @@ def manifest_wrapper (data           : str
                     , schema         : str
                     , data_model_uri : str
                     , manifest       : str
-                    , manifest_title : str
+                    , manifest_name  : str
                     , validate       : bool
                     , prefixes       : dict[str, str]
                     , serialise_mode : str) -> bool:
@@ -214,7 +214,7 @@ def manifest_wrapper (data           : str
     whether the manifest file exists (optional) and whether the schema
     and data file exists (obviously mandatory).
     '''
-    logging.debug (f"Called `manifest_wrapper (data = {data}, schema = {schema}, data_model_uri = {data_model_uri}, manifest = {manifest}, manifest_title = {manifest_title}, validate = {validate}, prefixes = {prefixes})'")
+    logging.debug (f"Called `manifest_wrapper (data = {data}, schema = {schema}, data_model_uri = {data_model_uri}, manifest = {manifest}, manifest_name = {manifest_name}, validate = {validate}, prefixes = {prefixes})'")
     logging.debug (f"Checking that input data {data} and schema {schema} files exist")
     
     prereq_check = isfile (data) and isfile (schema)
@@ -233,7 +233,7 @@ def manifest_wrapper (data           : str
                                             , schema         = schema
                                             , data_model_uri = data_model_uri
                                             , manifest       = manifest
-                                            , manifest_title = manifest_title
+                                            , manifest_name  = manifest_name
                                             , append_mode    = "append"
                                             , serialise_mode = serialise_mode
                                             , prefixes       = prefixes)
@@ -243,7 +243,7 @@ def manifest_wrapper (data           : str
                                             , schema         = schema
                                             , data_model_uri = data_model_uri
                                             , manifest       = manifest
-                                            , manifest_title = manifest_title
+                                            , manifest_name  = manifest_name
                                             , append_mode    = "initialise"
                                             , serialise_mode = serialise_mode
                                             , prefixes       = prefixes)
@@ -277,8 +277,8 @@ def cli () -> None:
     parser.add_argument ("--data-model-uri"
                        , help     = "Data model YAML specification URI"
                        , default  = "https://marine.gov.scot/metadata/saved/schema/meta.yaml")
-    parser.add_argument ("--manifest-title"
-                       , help     = "Name of the manifest title root"
+    parser.add_argument ("--manifest-name"
+                       , help     = "Name of the manifest root object"
                        , default  = "RootManifest")
     parser.add_argument ("--serialisation"
                        , help     = "Serialise manifest as YAML or serialise manifest as RDF/TTL"
@@ -316,7 +316,7 @@ def cli () -> None:
                     , schema         = args.schema
                     , data_model_uri = args.data_model_uri
                     , manifest       = args.manifest
-                    , manifest_title = args.manifest_title
+                    , manifest_name  = args.manifest_name
                     , validate       = not args.no_validate
                     , prefixes       = prefixes
                     , serialise_mode = args.serialisation)

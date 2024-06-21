@@ -26,7 +26,7 @@ from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
 from fisdat            import __version__, __commit__
 from fisdat.ns         import CSVW
-from fisdat.utils      import fst, extension_helper, job_table
+from fisdat.utils      import fst, extension_helper, prefix_helper, job_table
 from fisdat.data_model import ManifestDesc
 
 ## data read/write buffer size, 1MB
@@ -74,16 +74,17 @@ def source () -> str:
 
 def prep_index (manifest_path_yaml : str
               , manifest_path_ttl  : str
-              , manifest_title     : str
+              , manifest_name      : str
+              , base_prefix        : str
               , index_name         : str
     ) -> str:
     '''
     Echo the manifest file name to .index or other file.
     This avoids hard-coding the manifest title.
     '''
-    logging.debug (f"Called `prep_index (manifest_path_yaml = {manifest_path_yaml}, manifest_path_ttl = {manifest_path_ttl}, manifest_title = {manifest_title}, index_name = {index_name})'")
+    logging.debug (f"Called `prep_index (manifest_path_yaml = {manifest_path_yaml}, manifest_path_ttl = {manifest_path_ttl}, manifest_name = {manifest_name}, index_name = {index_name})'")
 
-    index_contents = f"{manifest_path_yaml}\n{manifest_path_ttl}\n{manifest_title}"
+    index_contents = f"{manifest_path_yaml}\n{manifest_path_ttl}\n{base_prefix}\n{manifest_name}"
     
     output_index = codecs.open (index_name, "w", "utf-8")
     output_index.write (index_contents)
@@ -179,8 +180,11 @@ def coalesce_manifest (manifest_path_yaml : str
     
     manifest_obj = loader.load (source       = manifest_path_yaml
                               , target_class = ManifestDesc)
-
-    manifest_title = manifest_obj.atomic_name
+    
+    manifest_name = prefix_helper (py_data_model_view.schema,
+                                   manifest_obj.atomic_name,
+                                   prefixes["_base"])
+    logging.debug(f"Manifest name is {manifest_name}")
 
     # Check early that the two operations are feasible (for returning if --dry-run)
     (manifest_feasible, manifest_path_ttl) = convert_feasibility (
@@ -196,9 +200,9 @@ def coalesce_manifest (manifest_path_yaml : str
             tab.schema_path_ttl        = path_ttl
             
         if (manifest_feasible):
-            return (True, manifest_obj, manifest_path_ttl, manifest_title)
+            return (True, manifest_obj, manifest_path_ttl, manifest_name)
         else:
-            return (False, manifest_obj, manifest_path_ttl, manifest_title)
+            return (False, manifest_obj, manifest_path_ttl, manifest_name)
     else:
         for table in manifest_obj.tables:
             # Start by subbing in successfully-serialised TTL schemata
@@ -237,10 +241,10 @@ def coalesce_manifest (manifest_path_yaml : str
             dumper.dump (manifest_obj, manifest_path_ttl
                        , schemaview = py_data_model_view
                        , prefix_map = prefixes)
-            return (True, manifest_obj, manifest_path_ttl, manifest_title)
+            return (True, manifest_obj, manifest_path_ttl, manifest_name)
         else:
             print ("Conversion of YAML manifest object to TTL was not successful!")
-            return (False, manifest_obj, manifest_path_ttl, manifest_title)
+            return (False, manifest_obj, manifest_path_ttl, manifest_name)
     
 def cli () -> None:
     """
@@ -311,7 +315,7 @@ def cli () -> None:
     prefixes = { "_base": args.base_prefix
                , "saved": args.saved_prefix}
 
-    (test_manifest, manifest_obj, manifest_path_ttl, manifest_title) = coalesce_manifest (
+    (test_manifest, manifest_obj, manifest_path_ttl, manifest_name) = coalesce_manifest (
             manifest_path_yaml = args.manifest
           , data_model_uri     = args.data_model_uri
           , prefixes           = prefixes
@@ -319,15 +323,13 @@ def cli () -> None:
           , dry_run            = args.no_upload
         )
 
+    index = prep_index (manifest_path_yaml = args.manifest
+                      , manifest_path_ttl  = manifest_path_ttl
+                      , manifest_name      = manifest_name
+                      , base_prefix        = args.base_prefix
+                      , index_name         = args.index)
+    
     if (test_manifest):
-        if (args.no_upload):
-            index = args.index
-        else:
-            index = prep_index (manifest_path_yaml = args.manifest
-                              , manifest_path_ttl  = manifest_path_ttl
-                              , manifest_title     = manifest_title
-                              , index_name         = args.index)
-     
         resources     = [table.resource_path    for table in manifest_obj.tables]
         schemata_ttl  = [table.schema_path_ttl  for table in manifest_obj.tables]
         schemata_yaml = [table.schema_path_yaml for table in manifest_obj.tables]
