@@ -13,6 +13,9 @@ from pathlib    import Path, PurePath
 import inspect
 import logging
 
+import rdflib.plugins.parsers.notation3
+import yaml.scanner
+
 from fisdat            import __version__, __commit__
 from fisdat.data_model import JobDesc, TableDesc, ManifestDesc
 from fisdat.ns         import CSVW
@@ -65,7 +68,7 @@ def dump_wrapper (py_obj
         return (True)
     
     else:
-        print ("Unrecognised mode for `dump_wrapper()', cannot dump object")
+        print (f"Unrecognised serialisation mode {mode} cannot dump object")
         return (False)
 
 def append_job_manifest (data           : str
@@ -143,18 +146,29 @@ def append_job_manifest (data           : str
     else:
         logging.info (f"Reading existing manifest {manifest}")
 
+        # except yaml.scanner.ScannerError: 
+        #   raise ValueError (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--serialisation' option)")
+        # except rdflib.plugins.parsers.notation3.BadSyntax:
+        #   raise ValueError(f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--serialisation' option)")
+        
         if (serialise_mode == "ttl"):
-            loader          = RDFLibLoader ()
-            extant_manifest = loader.load (source       = manifest
-                                         , target_class = ManifestDesc
-                                         , schemaview   = py_data_model_view)
+            try:
+                loader          = RDFLibLoader ()
+                extant_manifest = loader.load (source       = manifest
+                                             , target_class = ManifestDesc
+                                             , schemaview   = py_data_model_view)
+            except rdflib.plugins.parsers.notation3.BadSyntax:
+                raise ValueError(f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--serialisation' option)")
+            
         elif (serialise_mode == "yaml"):
-            loader          = YAMLLoader ()
-            extant_manifest = loader.load (source       = manifest
-                                         , target_class = ManifestDesc)
-
+            try:
+                loader          = YAMLLoader ()
+                extant_manifest = loader.load (source       = manifest
+                                             , target_class = ManifestDesc)
+            except yaml.scanner.ScannerError: 
+                raise ValueError (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--serialisation' option)")
         else:
-            print ("Unrecognised serialisation mode for `append_job_manifest()', cannot load extant object")
+            raise ValueError ("Unrecognised serialisation mode for `append_job_manifest()', cannot load extant object")
             return (False)
 
             
@@ -286,10 +300,10 @@ def cli () -> None:
                        , choices  = ["yaml", "ttl"]
                        , default  = "yaml")
     parser.add_argument ("--base-prefix"
-                       , help     = "@base prefix from which job manifest, job results, data and descriptive statistics may be served."
+                       , help     = "RDF `@base' prefix from which manifest, results, data and descriptive statistics may be served."
                        , default  = "https://marine.gov.scot/metadata/saved/rap/")
     parser.add_argument ("--saved-prefix"
-                       , help     = "`saved' data model schema prefix"
+                       , help     = "RDF `saved' data model schema prefix"
                        , default  = "https://marine.gov.scot/metadata/saved/schema/")
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"

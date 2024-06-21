@@ -14,19 +14,22 @@ from pathlib import Path, PurePath
 import time
 import uuid
 
+import rdflib.plugins.parsers.notation3
+import yaml.scanner
+
 from linkml.generators.pythongen     import PythonGenerator
 from linkml.generators.rdfgen        import RDFGenerator
 from linkml.utils.schema_builder     import SchemaBuilder
 from linkml.utils.schemaloader       import SchemaLoader
 from linkml.validator                import validate_file
 from linkml.validator.report         import Severity, ValidationResult, ValidationReport
-from linkml_runtime.dumpers          import RDFLibDumper
-from linkml_runtime.loaders          import YAMLLoader
+from linkml_runtime.dumpers          import RDFLibDumper, YAMLDumper
+from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
 from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 
 from fisdat            import __version__, __commit__
 from fisdat.ns         import CSVW
-from fisdat.utils      import fst, extension_helper, prefix_helper, job_table
+from fisdat.utils      import error, fst, extension_helper, prefix_helper, job_table
 from fisdat.data_model import ManifestDesc
 
 ## data read/write buffer size, 1MB
@@ -126,7 +129,7 @@ def convert_feasibility (input_path : PurePath
 
     return (stage_write)
 
-def coalesce_schema (schema_path_yaml : str, dry_run : bool = False) -> (bool, str):
+def coalesce_schema (schema_path_yaml : str, dry_run : bool, force : bool) -> (bool, str):
     '''
     Convert YAML schema to turtle equvialent
     '''
@@ -134,7 +137,7 @@ def coalesce_schema (schema_path_yaml : str, dry_run : bool = False) -> (bool, s
 
     (feasible, schema_path_ttl) = convert_feasibility (input_path = PurePath (schema_path_yaml)
                                                      , target_ext = "ttl"
-                                                     , force      = True)
+                                                     , force      = force)
     if (dry_run and feasible):
         print (f"Would have converted schema from YAML {schema_path_yaml} to TTL {schema_path_ttl}")
         return (True, schema_path_ttl)
@@ -153,61 +156,88 @@ def coalesce_schema (schema_path_yaml : str, dry_run : bool = False) -> (bool, s
 
         return (True, schema_path_ttl)
     else:
-        print (f"Conversion of schema from YAML {manifest_obj.schema_path_yaml} to TTL {sch_conv} is not feasible!")
+        print (f"Conversion of schema from YAML {schema_path_yaml} to TTL {schema_path_ttl} is not feasible!")
         return (False, schema_path_ttl)
 
-def coalesce_manifest (manifest_path_yaml : str
+def coalesce_manifest (manifest_path      : str
+                     , manifest_format    : str
                      , data_model_uri     : str
                      , prefixes           : dict[str, str]
                      , gcp_source         : str
-                     , dry_run            : bool = False) -> (bool, ManifestDesc, str):
+                     , dry_run            : bool
+                     , force              : bool) -> (bool, ManifestDesc, str, str, str, str):
     '''
     The YAML files are provided and edited locally, but we can't process
     these with non-Python tooling. This function converts schemata
     described in the manifest to turtle, then converts the manifest
     itself to turtle.
     '''
-    logging.debug (f"Called `coalesce_manifest (manifest_path_yaml = {manifest_path_yaml}, data_model_uri = {data_model_uri}, prefixes = {prefixes}, gcp_source = {gcp_source})'")
+    logging.debug (f"Called `coalesce_manifest (manifest_path = {manifest_path}, data_model_uri = {data_model_uri}, prefixes = {prefixes}, gcp_source = {gcp_source})'")
     
-    if not isfile (manifest_path_yaml):
-        raise ValueError(f"No such file: {manifest_path_yaml}")
-    
-    # Start by loading the manifest
-    loader = YAMLLoader   ()
-    dumper = RDFLibDumper ()
+    if not isfile (manifest_path):
+        error(f"No such file: {manifest_path}")
 
     py_data_model_view = SchemaView (data_model_uri)
     
-    manifest_obj = loader.load (source       = manifest_path_yaml
-                              , target_class = ManifestDesc)
-    
+    # Start by loading the manifest
+    if (manifest_format == "ttl"):
+        loader = RDFLibLoader ()
+        dumper = YAMLDumper   ()
+        try:
+            manifest_obj = loader.load (source       = manifest_path
+                                      , target_class = ManifestDesc
+                                      , schemaview   = py_data_model_view)
+            manifest_path_ttl = manifest_path
+            (manifest_feasible, manifest_path_yaml) = convert_feasibility (
+                input_path = PurePath (manifest_path)
+              , target_ext = "yaml"
+              , force      = force # More likely mistaken, don't forcibly overwrite!
+            )
+        except rdflib.plugins.parsers.notation3.BadSyntax:
+            raise ValueError(f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--serialisation' option)")
+
+    elif (manifest_format == "yaml"):
+        loader = YAMLLoader   ()
+        dumper = RDFLibDumper ()
+
+        try:
+            manifest_obj = loader.load (source       = manifest_path
+                                        , target_class = ManifestDesc)
+
+            manifest_path_yaml = manifest_path
+            (manifest_feasible, manifest_path_ttl) = convert_feasibility (
+                input_path = PurePath (manifest_path)
+              , target_ext = "ttl"
+              , force      = True
+            )
+        except yaml.scanner.ScannerError:
+            raise ValueError (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--serialisation' option)")
+    else:
+        raise ValueError (f"Unrecognised serialisation mode {manifest_format}, cannot load extant object")
+        
     manifest_name = prefix_helper (py_data_model_view.schema,
                                    manifest_obj.atomic_name,
                                    prefixes["_base"])
     logging.debug(f"Manifest name is {manifest_name}")
 
     # Check early that the two operations are feasible (for returning if --dry-run)
-    (manifest_feasible, manifest_path_ttl) = convert_feasibility (
-        input_path = PurePath (manifest_path_yaml)
-      , target_ext = "ttl"
-      , force      = True
-    )
+    
     
     # Order slightly iffy, but schema conversion is not a prerequisite of the manifest conversion
     if (dry_run):
         for tab in manifest_obj.tables:
-            (schema_success, path_ttl) = coalesce_schema (tab.schema_path_yaml, dry_run = True)
+            (schema_success, path_ttl) = coalesce_schema (tab.schema_path_yaml, dry_run = dry_run, force = False)
             tab.schema_path_ttl        = path_ttl
             
         if (manifest_feasible):
-            return (True, manifest_obj, manifest_path_ttl, manifest_name)
+            return (True, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_name)
         else:
-            return (False, manifest_obj, manifest_path_ttl, manifest_name)
+            return (False, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_name)
     else:
         for table in manifest_obj.tables:
             # Start by subbing in successfully-serialised TTL schemata
             # Useful print statements in `coalesce_schema()' function
-            (schema_success, path_ttl) = coalesce_schema (table.schema_path_yaml)
+            (schema_success, path_ttl) = coalesce_schema (table.schema_path_yaml, dry_run = dry_run, force = force)
             if (schema_success):
                 table.schema_path_ttl = path_ttl
 
@@ -238,13 +268,20 @@ def coalesce_manifest (manifest_path_yaml : str
             # Not actually implemented in data model yet
             #manifest_obj.source = gcp_source
 
-            dumper.dump (manifest_obj, manifest_path_ttl
-                       , schemaview = py_data_model_view
-                       , prefix_map = prefixes)
-            return (True, manifest_obj, manifest_path_ttl, manifest_name)
+            # We've already caught the exceptions above, so these shouldn't fail. If they do, it's unlikely to be because of the format, so leave as-is.
+            if (manifest_format == "ttl"):
+                dumper.dump (manifest_obj, manifest_path_yaml
+                           , schemaview = py_data_model_view)
+                return (True, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_name)
+            else:
+                dumper.dump (manifest_obj, manifest_path_ttl
+                           , schemaview = py_data_model_view
+                           , prefix_map = prefixes)
+                return (True, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_name)
+            
         else:
             print ("Conversion of YAML manifest object to TTL was not successful!")
-            return (False, manifest_obj, manifest_path_ttl, manifest_name)
+            return (False, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_name)
     
 def cli () -> None:
     """
@@ -274,15 +311,24 @@ def cli () -> None:
     parser.add_argument ("--data-model-uri"
                        , help     = "Data model YAML specification URI"
                        , default  = "https://marine.gov.scot/metadata/saved/schema/meta.yaml")
+    parser.add_argument ("--manifest-format", "--input-format", "--serialisation"
+                       , help     = "Input manifest format"
+                       , type     = str
+                       , choices  = ["yaml", "ttl"]
+                       , default  = "yaml")
     parser.add_argument ("--base-prefix"
-                       , help    = "@base prefix from which job manifest, job results, data and descriptive statistics may be served."
-                       , default = "https://marine.gov.scot/metadata/saved/rap/")
+                       , help     = "RDF `@base' prefix from which manifest, results, data and descriptive statistics may be served."
+                       , default  = "https://marine.gov.scot/metadata/saved/rap/")
     parser.add_argument ("--saved-prefix"
-                       , help     = "`saved' data model schema prefix"
+                       , help     = "RDF `saved' data model schema prefix"
                        , default  = "https://marine.gov.scot/metadata/saved/schema/")
     parser.add_argument ("-n", "--no-upload", "--dry-run"
                        , help     = "Don't upload files"
                        , action   = "store_true")
+    parser.add_argument ("-f", "--force"
+                       , help = "Forcibly overwrite files in case of conflicts"
+                       , action = "store_true"
+                       , default = False)
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"
                        , required = False
@@ -315,16 +361,18 @@ def cli () -> None:
     prefixes = { "_base": args.base_prefix
                , "saved": args.saved_prefix}
 
-    (test_manifest, manifest_obj, manifest_path_ttl, manifest_name) = coalesce_manifest (
-            manifest_path_yaml = args.manifest
+    (test_manifest, manifest_obj, manifest_yaml, manifest_ttl, manifest_name) = coalesce_manifest (
+            manifest_path      = args.manifest
+          , manifest_format    = args.manifest_format
           , data_model_uri     = args.data_model_uri
           , prefixes           = prefixes
           , gcp_source         = data_source_email
           , dry_run            = args.no_upload
+          , force              = args.force
         )
 
-    index = prep_index (manifest_path_yaml = args.manifest
-                      , manifest_path_ttl  = manifest_path_ttl
+    index = prep_index (manifest_path_yaml = manifest_yaml
+                      , manifest_path_ttl  = manifest_ttl
                       , manifest_name      = manifest_name
                       , base_prefix        = args.base_prefix
                       , index_name         = args.index)
@@ -336,13 +384,13 @@ def cli () -> None:
         time_stamp    = datetime.today ().strftime ('%Y%m%d')
         short_name    = data_source_email.split ('@') [0]
 
-        staging_files = [basename (args.manifest)
-                       , manifest_path_ttl
+        staging_files = [manifest_yaml
+                       , manifest_ttl
                        , index] + resources + schemata_yaml + schemata_ttl
         
         url = upload_files (args, staging_files, short_name, time_stamp, args.no_upload)
 
         if (not args.no_upload):
-            print(f"Successfully uploaded your data-set to {url}")
+            print(f"Successfully uploaded your data/job set/bundle to {url}")
         else:
-            print(f"Would have uploaded your data-set to {url}")
+            print(f"Would have uploaded your data/job set/bundle to {url}")
