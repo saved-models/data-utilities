@@ -150,11 +150,6 @@ def append_job_manifest (data           : str
     else:
         logging.info (f"Reading existing manifest {manifest_path}")
 
-        # except yaml.scanner.ScannerError: 
-        #   raise ValueError (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--serialisation' option)")
-        # except rdflib.plugins.parsers.notation3.BadSyntax:
-        #   raise ValueError(f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--serialisation' option)")
-        
         if (serialise_mode == "ttl"):
             try:
                 loader          = RDFLibLoader ()
@@ -162,7 +157,8 @@ def append_job_manifest (data           : str
                                              , target_class = ManifestDesc
                                              , schemaview   = py_data_model_view)
             except rdflib.plugins.parsers.notation3.BadSyntax:
-                raise ValueError(f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--serialisation' option)")
+                print (f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--serialisation' option)")
+                return (False)
             
         elif (serialise_mode == "yaml"):
             try:
@@ -170,7 +166,8 @@ def append_job_manifest (data           : str
                 extant_manifest = loader.load (source       = manifest
                                              , target_class = ManifestDesc)
             except yaml.scanner.ScannerError: 
-                raise ValueError (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--serialisation' option)")
+                print (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--serialisation' option)")
+                return (False)
         else:
             raise ValueError ("Unrecognised serialisation mode for `append_job_manifest()', cannot load extant object")
             return (False)

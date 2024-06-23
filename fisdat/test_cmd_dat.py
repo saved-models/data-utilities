@@ -115,7 +115,36 @@ class TestAppend (unittest.TestCase):
         )
         try:
             os.remove ("/tmp/append2.yaml")
-            self.assertFalse (test_initialise and not test_append)
+            self.assertTrue (test_initialise and not test_append)
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+
+    def test_manifest_append3 (self):
+        print ("Test case #4: TTL manifest init, YAML manifest append")
+
+        test_initialise = manifest_wrapper (
+            data           = data0
+          , schema         = schema0
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append3.ttl"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        test_append = manifest_wrapper (
+            data           = data1
+          , schema         = schema1
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append3.ttl"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "yaml"
+        )
+        try:
+            os.remove ("/tmp/append3.ttl")
+            self.assertTrue (test_initialise and not test_append)
         except FileNotFoundError as e:
             self.assertTrue (bool(e))
     
