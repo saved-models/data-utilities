@@ -49,22 +49,24 @@ def upload_files (args    : [str]
     path     = gen_path (owner, ts, args.directory) if args.directory is not None else gen_path (owner, ts, jobuuid)
     if (not dry_run):
         for fname in files:
-            fpath = path + "/" + fname
-            print (f"Uploading gs://{args.bucket}/{fpath} ...")
-            start = time.time ()
-            blob = bucket.blob(fpath)
-            blob.upload_from_filename (fname, timeout=86400)
-            end = time.time ()
-            abs_time = end - start
-            if (abs_time < 1):
-                elapsed = round (abs_time, 2)
-            else:
-                elapsed = round (abs_time)
-            print (f"Uploaded {fname} in {elapsed}s")
+            if fname is not None:
+                fpath = path + "/" + fname
+                print (f"Uploading gs://{args.bucket}/{fpath} ...")
+                start = time.time ()
+                blob = bucket.blob(fpath)
+                blob.upload_from_filename (fname, timeout=86400)
+                end = time.time ()
+                abs_time = end - start
+                if (abs_time < 1):
+                    elapsed = round (abs_time, 2)
+                else:
+                    elapsed = round (abs_time)
+                print (f"Uploaded {fname} in {elapsed}s")
     else:
         for fname in files:
-            fpath = path + "/" + fname
-            print (f"Would upload to gs://{args.bucket}/{fpath} ...")
+            if fname is not None:
+                fpath = path + "/" + fname
+                print (f"Would upload to gs://{args.bucket}/{fpath} ...")
     return f"gs://{args.bucket}/{path}"
 
 def source () -> str:
