@@ -14,6 +14,7 @@ import inspect
 import logging
 
 import rdflib.plugins.parsers.notation3
+import urllib.error
 import yaml.scanner
 
 from fisdat            import __version__, __commit__
@@ -96,8 +97,13 @@ def append_job_manifest (data           : str
     with open (data, "rb") as fp:
         data_text = fp.read ()
     data_hash = sha384 (data_text).hexdigest()
-    
-    py_data_model_view = SchemaView (data_model_uri)
+
+    try:
+        py_data_model_view = SchemaView (data_model_uri)
+    except urllib.error.HTTPError as e:
+        print (f"HTTP error {e.code} trying data model URI `{e.url}'")
+        print ("If you've overridden the default using the `--data-model-uri' option, double-check that it's valid.")
+        return (False)
     
     logging.info ("Generating base job description")
     schema_obj        = SchemaLoader (schema).schema
@@ -169,7 +175,7 @@ def append_job_manifest (data           : str
                 print (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--serialisation' option)")
                 return (False)
         else:
-            raise ValueError ("Unrecognised serialisation mode for `append_job_manifest()', cannot load extant object")
+            print ("Unrecognised serialisation mode for `append_job_manifest()', cannot load extant object")
             return (False)
 
             
@@ -289,7 +295,7 @@ def cli () -> None:
     parser.add_argument ("-n", "--no-validate", "--dry-run"
                        , help     = "Disable validation"
                        , action   = "store_true")
-    parser.add_argument ("--data-model-uri"
+    parser.add_argument ("--data-model-uri", "--data-model"
                        , help     = "Data model YAML specification URI"
                        , default  = "https://marine.gov.scot/metadata/saved/schema/meta.yaml")
     parser.add_argument ("--manifest-name"
@@ -303,9 +309,6 @@ def cli () -> None:
     parser.add_argument ("--base-prefix"
                        , help     = "RDF `@base' prefix from which manifest, results, data and descriptive statistics may be served."
                        , default  = "https://marine.gov.scot/metadata/saved/rap/")
-    parser.add_argument ("--saved-prefix"
-                       , help     = "RDF `saved' data model schema prefix"
-                       , default  = "https://marine.gov.scot/metadata/saved/schema/")
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"
                        , required = False
@@ -325,7 +328,7 @@ def cli () -> None:
                        , format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'")
 
     prefixes = { "_base": args.base_prefix
-               , "saved": args.saved_prefix }
+               , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
     manifest_wrapper (data           = args.csvfile
                     , schema         = args.schema

@@ -7,22 +7,28 @@ import unittest
 logging_format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'"
 logging_level  = logging.DEBUG
         
-data_model_uri = "https://marine.gov.scot/metadata/saved/schema/meta.yaml"
-manifest_yaml  = "/tmp/manifest.yaml"
-manifest_ttl   = "/tmp/manifest.ttl"
-manifest_name  = "RootManifest"
-prefixes = { "_base": "https://marine.gov.scot/metadata/saved/rap/"
-           , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
-        
-data0 = "examples/sentinel_cages/sentinel_cages_cleaned.csv"
-data1 = "examples/sentinel_cages/Sentinel_cage_station_info_6.csv"
-data_ne   = "examples/sentinel_cages/.cagedata.csv"
-data_bad  = "examples/sentinel_cages/Sentinel_cage_sampling_info_update_01122022.csv"
+data_model_uri    = "https://marine.gov.scot/metadata/saved/schema/meta.yaml"
+data_model_uri_ne = "https://marine.gov.scot/metadata/saved/schema/.test.yaml"
 
-schema0 = "examples/sentinel_cages/sentinel_cages_sampling.yaml"
-schema1  = "examples/sentinel_cages/sentinel_cages_site.yaml"
-schema_ne   = "examples/sentinel_cages/.sampling.yaml"
+prefixes          = { "_base": "https://marine.gov.scot/metadata/saved/rap/"
+                    , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
+prefixes_alt      = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt/"
+                    , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
+prefixes_alt_alt  = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt_alt/"
+                    , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
+manifest_yaml = "/tmp/manifest.yaml"
+manifest_ttl  = "/tmp/manifest.ttl"
+manifest_name = "RootManifest"
+
+data0    = "examples/sentinel_cages/sentinel_cages_cleaned.csv"
+data1    = "examples/sentinel_cages/Sentinel_cage_station_info_6.csv"
+data_ne  = "examples/sentinel_cages/.cagedata.csv"
+data_bad = "examples/sentinel_cages/Sentinel_cage_sampling_info_update_01122022.csv"
+
+schema0   = "examples/sentinel_cages/sentinel_cages_sampling.yaml"
+schema1   = "examples/sentinel_cages/sentinel_cages_site.yaml"
+schema_ne = "examples/sentinel_cages/.sampling.yaml"
 
 class TestAppend (unittest.TestCase):
     '''
@@ -30,6 +36,17 @@ class TestAppend (unittest.TestCase):
     Case 2: TTl manifest init, TTL manifest append   -> True
     Case 3: YAML manifest init, TTL manifest append  -> False
     Case 4: TTL manifest init, YAML manifest append  -> False
+
+    These test fiddling around with base prefixes, which is only relevant
+    at this stage when using the TTL serialisation. In fact, they let us
+    override base, for objects added to the graph. This behaviour is
+    fairly questionable and related to the LinkML serialisation, these
+    tests only check that the thing succeeds.
+    
+    Case 5: YAML manifest init (default base), YAML manifest append (alt base)   -> True
+    Case 6: TTL manifest init (default base), TTL manifest append (alt base)     -> True
+    Case 7: TTL manifest init (alt base), TTL manifest append (alt base #2)      -> True
+    Case 8: TTL manifest init (good ontology URI), TTL manifest append (bad URI) -> False
     '''
 
     def test_manifest_append0 (self):
@@ -147,6 +164,122 @@ class TestAppend (unittest.TestCase):
             self.assertTrue (test_initialise and not test_append)
         except FileNotFoundError as e:
             self.assertTrue (bool(e))
+
+    def test_manifest_append4 (self):
+        print ("Test case #5: YAML manifest init (default base), YAML manifest append (alt. base)")
+
+        test_initialise = manifest_wrapper (
+            data           = data0
+          , schema         = schema0
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append4.yaml"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "yaml"
+        )
+        test_append = manifest_wrapper (
+            data           = data1
+          , schema         = schema1
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append4.yaml"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes_alt
+          , serialise_mode = "yaml"
+        )
+        try:
+            os.remove ("/tmp/append4.yaml")
+            self.assertTrue (test_initialise and test_append)
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+
+    def test_manifest_append5 (self):
+        print ("Test case #6: TTL manifest init (default base), TTL manifest append (alt. base)")
+
+        test_initialise = manifest_wrapper (
+            data           = data0
+          , schema         = schema0
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append5.ttl"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        test_append = manifest_wrapper (
+            data           = data1
+          , schema         = schema1
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append5.ttl"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes_alt
+          , serialise_mode = "ttl"
+        )
+        try:
+            os.remove ("/tmp/append5.ttl")
+            self.assertTrue (test_initialise and test_append)
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+
+    def test_manifest_append6 (self):
+        print ("Test case #7: TTL manifest init (alt. base), TTL manifest append (alt. base #2)")
+
+        test_initialise = manifest_wrapper (
+            data           = data0
+          , schema         = schema0
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append6.ttl"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes_alt
+          , serialise_mode = "ttl"
+        )
+        test_append = manifest_wrapper (
+            data           = data1
+          , schema         = schema1
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append6.ttl"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes_alt_alt
+          , serialise_mode = "ttl"
+        )
+        try:
+            os.remove ("/tmp/append6.ttl")
+            self.assertTrue (test_initialise and test_append)
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+
+    def test_manifest_append7 (self):
+        print ("Test case #8: TTL manifest init (good ontology URI), TTL manifest append (bad URI)")
+
+        test_initialise = manifest_wrapper (
+            data           = data0
+          , schema         = schema0
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append7.ttl"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        test_append = manifest_wrapper (
+            data           = data1
+          , schema         = schema1
+          , data_model_uri = data_model_uri_ne
+          , manifest       = "/tmp/append7.ttl"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        try:
+            os.remove ("/tmp/append7.ttl")
+            self.assertTrue (test_initialise and not test_append)
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
     
 class TestInit (unittest.TestCase):
     '''
@@ -162,6 +295,11 @@ class TestInit (unittest.TestCase):
     of the serialisation mode (YAML/TTL) or append mode (initialise
     or append). For the initialisation stage, the actual format doesn't
     matter and should be tested elsewhere.
+
+    Should only matter for serialising TTL, should succeed for both
+    Case 7: Known-good test data, non-standard @base prefix, YAML -> True
+    Case 8: Known-good test data, non-standard @base prefix, TTL  -> True
+    Case 9: Known-good test data, malformed ontology URI          -> False
     '''
 
     def test_manifest_init0 (self):
@@ -256,3 +394,57 @@ class TestInit (unittest.TestCase):
             self.assertTrue (test)
         except FileNotFoundError as e:
             self.assertTrue (bool(e))
+
+    def test_manifest_init6 (self):
+        print ("Test case #7: Known-good test data, non-standard @base prefix, YAML")
+
+        test = manifest_wrapper (
+            data           = data0
+          , schema         = schema0
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/initialise6.yaml"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes_alt
+          , serialise_mode = "yaml"
+        )
+        try:
+            os.remove ("/tmp/initialise6.yaml")
+            self.assertTrue (test)
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+
+    def test_manifest_init7 (self):
+        print ("Test case #8: Known-good test data, non-standard @base prefix, TTL")
+
+        test = manifest_wrapper (
+            data           = data0
+          , schema         = schema0
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/initialise7.ttl"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes_alt
+          , serialise_mode = "ttl"
+        )
+        try:
+            os.remove ("/tmp/initialise7.ttl")
+            self.assertTrue (test)
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+
+    def test_manifest_init8 (self): 
+       print ("Test case #9: Known-good test data, malformed ontology URI")
+
+       test = manifest_wrapper (
+           data           = data0
+         , schema         = schema0
+         , data_model_uri = data_model_uri_ne
+         , manifest       = "/tmp/initialise8.ttl"
+         , manifest_name  = manifest_name
+         , validate       = True
+         , prefixes       = prefixes_alt
+         , serialise_mode = "ttl"
+       )
+       self.assertFalse (test)
+       

@@ -321,9 +321,6 @@ def cli () -> None:
     parser.add_argument ("--base-prefix"
                        , help     = "RDF `@base' prefix from which manifest, results, data and descriptive statistics may be served."
                        , default  = "https://marine.gov.scot/metadata/saved/rap/")
-    parser.add_argument ("--saved-prefix"
-                       , help     = "RDF `saved' data model schema prefix"
-                       , default  = "https://marine.gov.scot/metadata/saved/schema/")
     parser.add_argument ("-n", "--no-upload", "--dry-run"
                        , help     = "Don't upload files"
                        , action   = "store_true")
@@ -361,7 +358,7 @@ def cli () -> None:
         data_source_email = args.source
 
     prefixes = { "_base": args.base_prefix
-               , "saved": args.saved_prefix}
+               , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
     (test_manifest, manifest_obj, manifest_yaml, manifest_ttl, manifest_name) = coalesce_manifest (
             manifest_path      = args.manifest
