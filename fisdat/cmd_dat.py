@@ -39,8 +39,7 @@ def dump_wrapper (py_obj
     which is why it's not called directly.
     '''
     logging.debug (f"Called `dump_wrapper (py_obj = {py_obj}, data_model_view = {SchemaView}, output_path = {str(output_path)}, prefixes = {prefixes}, mode = {mode})'")
-    
-    output_path_abs = str (output_path.name)
+
     output_path_ext = extension_helper (output_path)
 
     namespaces = data_model_view.namespaces()
@@ -51,9 +50,9 @@ def dump_wrapper (py_obj
             logging.info (f"Warning: target extension has a .{output_path_ext} extension, but will actually be serialised as RDF/TTL")
         dumper = RDFLibDumper ()
         
-        logging.info (f"Dumping Python object to {output_path_abs}")
+        logging.info (f"Dumping Python object to {output_path}")
         # Hard-coded at the moment, need to fix this
-        dumper.dump (py_obj, output_path_abs, schemaview = data_model_view, prefix_map = prefixes)
+        dumper.dump (py_obj, output_path, schemaview = data_model_view, prefix_map = prefixes)
 
         return (True)            
         
@@ -62,8 +61,8 @@ def dump_wrapper (py_obj
             logging.info (f"Warning: target extension has a .{output_path_ext} extension, but will actually be serialised as YAML")
         dumper = YAMLDumper ()
         
-        logging.info (f"Dumping Python object to {output_path_abs}")
-        dumper.dump (py_obj, output_path_abs)
+        logging.info (f"Dumping Python object to {output_path}")
+        dumper.dump (py_obj, output_path)
 
         return (True)
     
@@ -105,6 +104,11 @@ def append_job_manifest (data           : str
     schema_properties = schema_components_helper (schema_obj)
     target_set_atomic = schema_properties ["atomic_name"]
 
+    if (data_path.name != str(data_path)):
+        print ("Warning: Data file does not seem to be located in current working directory, need to move this here upon upload with `fisup'")
+    if (schema_path.name != str(schema_path)):
+        print ("Warning: Schema file does not seem to be located in current working directory, need to move this here upon upload with `fisup'")
+
     logging.info ("Generating base table description")
     staging_table = TableDesc (
         atomic_name      = target_set_atomic
@@ -141,10 +145,10 @@ def append_job_manifest (data           : str
 
         # Important to catch this!
         if (result):
-            print (job_table (manifest_skeleton, manifest, preamble = True))
+            print (job_table (manifest_skeleton, manifest_path, preamble = True))
 
     else:
-        logging.info (f"Reading existing manifest {manifest}")
+        logging.info (f"Reading existing manifest {manifest_path}")
 
         # except yaml.scanner.ScannerError: 
         #   raise ValueError (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--serialisation' option)")
