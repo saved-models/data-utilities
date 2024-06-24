@@ -387,6 +387,7 @@ def cli () -> None:
         data_source_email = args.source
 
     prefixes = { "_base": args.base_prefix
+                 "rap":   "https://marine.gov.scot/metadata/saved/rap/"
                , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
     (test_manifest, manifest_obj, manifest_yaml, manifest_ttl, manifest_uri) = coalesce_manifest (

@@ -6,10 +6,6 @@ from pathlib import Path, PurePath
 import os
 from shutil import copytree, rmtree, ignore_patterns
 import unittest
-'''
-Note here that the tests often end in a `try'/`exception' block for `os.remove'.
-This is a succint, if rough way of checking that the file exists as expected.
-'''
 
 logging_format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'"
 logging_level  = logging.DEBUG
@@ -18,10 +14,13 @@ data_model_uri    = "https://marine.gov.scot/metadata/saved/schema/meta.yaml"
 data_model_uri_ne = "https://marine.gov.scot/metadata/saved/schema/.test.yaml"
 
 prefixes          = { "_base": "https://marine.gov.scot/metadata/saved/rap/"
+                    , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 prefixes_alt      = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt/"
+                    , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 prefixes_alt_alt  = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt_alt/"
+                    , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
 data0    = PurePath ("examples/sentinel_cages/sentinel_cages_cleaned.csv")

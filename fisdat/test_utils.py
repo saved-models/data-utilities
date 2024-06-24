@@ -16,9 +16,11 @@ logging_format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (
 logging_level  = logging.DEBUG
 
 prefixes = { "_base": "https://marine.gov.scot/metadata/saved/rap/"
+           , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
            , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
 data0     = "examples/sentinel_cages/sentinel_cages_cleaned.csv"
+data_ne   = "examples/sentinel_cages/.cagedata.csv"
 schema0   = "examples/sentinel_cages/sentinel_cages_sampling.yaml"
 schema1   = "examples/sentinel_cages/sentinel_cages_site.yaml"
 schema_ne = "examples/sentinel_cages/.sampling.yaml"
@@ -179,9 +181,13 @@ class TestMisc (unittest.TestCase):
           , curie             = "curr:LeafManifest4"
           , fallback_uri      = "https://marine.gov.scot/metadata/saved/rap_alt/"
         )
+        print (test0)
+        print (test1)
+        print (test2)
         res0 = "https://marine.gov.scot/metadata/saved/rap/LeafManifest2"
         res1 = "https://marine.gov.scot/metadata/saved/rap_alt/LeafManifest3"
         res2 = "https://marine.gov.scot/metadata/saved/rap_alt/LeafManifest4"
+        
         self.assertTrue (test0 == res0 and test1 == res1 and test2 == res2)
 
     def test_prefixes3 (self):

@@ -16,10 +16,13 @@ data_model_uri    = "https://marine.gov.scot/metadata/saved/schema/meta.yaml"
 data_model_uri_ne = "https://marine.gov.scot/metadata/saved/schema/.test.yaml"
 
 prefixes          = { "_base": "https://marine.gov.scot/metadata/saved/rap/"
+                    , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 prefixes_alt      = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt/"
+                    , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 prefixes_alt_alt  = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt_alt/"
+                    , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
 manifest_yaml = "/tmp/manifest.yaml"

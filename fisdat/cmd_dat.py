@@ -328,6 +328,7 @@ def cli () -> None:
                        , format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'")
 
     prefixes = { "_base": args.base_prefix
+               , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
                , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
     manifest_wrapper (data           = args.csvfile
