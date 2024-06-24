@@ -12,7 +12,7 @@ from pathlib import PurePath
 import re
 from typing  import Optional
 
-from fisdat.data_model import ScopeDesc, TableDesc
+from fisdat.data_model import ManifestDesc, ScopeDesc, TableDesc
 
 def fst(g):
     '''
@@ -25,7 +25,7 @@ def fst(g):
 
 def validation_helper (data         : str
                      , schema       : str
-                     , target_class) -> bool:
+                     , target_class : str) -> bool:
     '''
     `validate_file()' either returns an empty list or a collection of
     errors in a report (`linkml.validator.report.ValidationReport').
@@ -41,24 +41,27 @@ def validation_helper (data         : str
     prereq_check = isfile (data) and isfile (schema)
 
     if (prereq_check):
-        report  = validate_file (data, schema, target_class, strict = True)
-        results = report.results
+        try: 
+            report  = validate_file (data, schema, target_class, strict = True)
+            results = report.results
 
-        if (not results):
-            logging.info (f"Validation success: data file {data} against schema file {schema}, with target class {target_class}")
-            return (True)
-        else:
-            single_result = results[0]
-            severity = single_result.severity
-            problem  = single_result.message
-            instance = single_result.instance
+            if (not results):
+                logging.info (f"Validation success: data file {data} against schema file {schema}, with target class {target_class}")
+                return (True)
+            else:
+                single_result = results[0]
+                severity = single_result.severity
+                problem  = single_result.message
+                instance = single_result.instance
             
-            print ("Validation error: ")
-            print (f"-> Severity: {severity}")
-            print (f"-> Message: {problem}")
-            print (f"-> Trace: {instance}")
+                print ("Validation error: ")
+                print (f"-> Severity: {severity}")
+                print (f"-> Message: {problem}")
+                print (f"-> Trace: {instance}")
         
-            return (False)
+                return (False)
+        except ValueError as e:
+            print (f"Invalid target class {target_class}")
     else:
         print (f"Data file {data} and schema file {schema} must exist!")
         return (prereq_check)
@@ -73,49 +76,45 @@ def extension_helper (target_path : PurePath) -> str:
         return (target)
     else:
         return (target_path.suffix [1 : len (target_path.suffix)])
-
-def prefix_helper (schema_definition : SchemaDefinition
-                 , uriorcurie        : str
-                 , base_prefix       : str):
-    '''
-    Extract prefix and term and expand it
-
-    If the prefix doesn't exist, link to the default.
-    If the default isn't set, link to hard-coded `rap' prefix
-
-    The `.default_prefix' field is confusingly a single text code,
-    whereas the `.prefixes' field is a map between prefix text codes and
-    the reference URI, which is what we're actually interested in.
-    '''
-    print (f"Called prefix_helper on {uriorcurie} with base prefix {base_prefix}")
     
-    default     = schema_definition.default_prefix
-    tuple_iri   = uriorcurie.split (':', 1)
-    # First case only applies to things referenced locally,
-    # use the base prefix!
-    if (len (tuple_iri) == 1):
-        return (base_prefix + tuple_iri[0])
+def prefix_helper (schema_definition : SchemaDefinition
+                 , curie             : str
+                 , fallback_uri      : str) -> str:
+    '''
+    This function mainly serves to try and expand a given prefix.
+    The pre-requisite is to check the CURIE is in the right format and split it.
+
+    1. If the prefix code/URI mappings are None, use the fallback prefix as we can't expand the default prefix code anyway
+    2. If the prefix code/URI mappings are not None, try looking up the prefix matched, and expand or use fallback prefix
+    3. If the prefix matched does not exist, try looking up the default prefix  and expand or use fallback prefixzip
+    '''
+    curie_pattern = re.compile (f"^([A-z|0-9|_]+):([A-z|0-9|_]+)$")
+    curie_match   = curie_pattern.match(curie)
+
+    if (curie_match is None):
+        return (fallback_uri + curie)
     else:
-        prefix = tuple_iri[0]
-        term   = tuple_iri[1]
+        target_prefix_code = curie_match.group(1)
+        target_term        = curie_match.group(2)
 
-        # This is the map of all declared prefixes
-        prefix_maps = schema_definition.prefixes
+        default_prefix_code = schema_definition.default_prefix
+        prefix_URI_mappings = schema_definition.prefixes
 
-        test_target_map = prefix_maps.get (prefix)
-                
-        if (test_target_map is None and default is None):
-            prepend_uri = base_prefix
-        elif (test_target_map is None and (prefix_maps.get (default)) is None):
-            prepend_uri = base_prefix
-        elif (test_target_map is None):
-            default_map = prefix_maps.get (default)
-            prepend_uri = default_map.prefix_reference
+        if (prefix_URI_mappings is None):
+            return (fallback_uri + target_term)
         else:
-            target_map = prefix_maps.get (prefix)
-            prepend_uri = target_map.prefix_reference
+            target_prefix_mapped = prefix_URI_mappings.get (target_prefix_code)
+            
+            if (target_prefix_mapped is None):
+                default_prefix_mapped = prefix_URI_mappings.get (default_prefix_code)
 
-        return (prepend_uri + term)
+                if (default_prefix_mapped is None):
+                    return (fallback_uri + target_term)
+                else:
+                    return (default_prefix_mapped.prefix_reference + target_term)
+            else:
+                return (target_prefix_mapped.prefix_reference + target_term)
+    
 
 def schema_components_helper (schema_obj) -> dict [str, str]:
     '''
