@@ -12,6 +12,7 @@ from os.path import isfile, basename, dirname
 from os      import chdir
 from pathlib import Path, PurePath
 import time
+from typing import Optional
 import uuid
 
 import rdflib.plugins.parsers.notation3
@@ -90,7 +91,7 @@ def prep_index (manifest_path_yaml : str
     logging.debug (f"Called `prep_index (manifest_path_yaml = {manifest_path_yaml}, manifest_path_ttl = {manifest_path_ttl}, manifest_name = {manifest_name}, index_name = {index_name})'")
 
     index_contents = f"{manifest_path_yaml}\n{manifest_path_ttl}\n{base_prefix}\n{manifest_name}"
-    
+
     output_index = codecs.open (index_name, "w", "utf-8")
     output_index.write (index_contents)
     output_index.close ()
@@ -98,9 +99,10 @@ def prep_index (manifest_path_yaml : str
     return (index_name)
 
 # To-do: add fallback? Not added since it complicates things
-def convert_feasibility (input_path : PurePath
-                       , target_ext : str
-                       , force      : bool = True) -> bool:
+def convert_feasibility (input_path  : PurePath
+                       , target_ext  : str
+                       , target_path : Optional[PurePath] = None
+                       , force       : bool = True) -> (bool, PurePath):
     '''
     Helper function which returns whether a given filesystem operation is
     feasible.
@@ -112,54 +114,63 @@ def convert_feasibility (input_path : PurePath
     It is unclear about whether some sort of fallback behaviour is desirable
     '''
     logging.debug (f"Called `convert_feasibility (input_path = {input_path}, target_ext = {target_ext}, force = {force})'")
-    input_stem  = input_path.stem
-    input_ext   = extension_helper (input_path)
-    target_path = f"{input_stem}.{target_ext}"
+
+    if target_path is None:
+        output_path = input_path.with_suffix (f".{target_ext}")
+    else:
+        output_path = target_path
     
-    if (target_ext == input_ext):
+    if (output_path.suffix == input_path.suffix):
         print (f"Target extension {target_ext} is same as input, won't do anything")
-        stage_write = (False, target_path)
-    elif (not isfile (target_path)):
-        print (f"Target file {target_path} doesn't exist, so overwrite")
-        stage_write = (True, target_path)
-    elif (isfile (target_path) and force):
-        print (f"Target file {target_path} exists, and force-overwrite is set, so overwrite")
-        stage_write = (True, target_path)
+        stage_write = (False, output_path)
+    elif (not isfile (output_path)):
+        print (f"Target file {output_path} doesn't exist, so overwrite")
+        stage_write = (True, output_path)
+    elif (isfile (output_path) and force):
+        print (f"Target file {output_path} exists, and force-overwrite is set, so overwrite")
+        stage_write = (True, output_path)
     else: #elif (isfile (target_file) and not force):
-        print (f"Target file {target_path} exists, but force-overwrite is not set, so don't overwrite!")
-        stage_write = (False, target_path)
+        print (f"Target file {output_path} exists, but force-overwrite is not set, so don't overwrite!")
+        stage_write = (False, output_path)
 
     return (stage_write)
 
-def coalesce_schema (schema_path_yaml : str, dry_run : bool, force : bool) -> (bool, str):
+def coalesce_schema (schema_path_yaml : str, dry_run : bool, force : bool, schema_path_ttl = Optional[str]) -> (bool, str):
     '''
     Convert YAML schema to turtle equvialent
     '''
     logging.debug (f"Called `coalesce_schema (schema_path_yaml = {schema_path_yaml}'")
 
-    (feasible, schema_path_ttl) = convert_feasibility (input_path = PurePath (schema_path_yaml)
-                                                     , target_ext = "ttl"
-                                                     , force      = force)
+    (feasible, target_path_ttl) = convert_feasibility (input_path  = PurePath (schema_path_yaml)
+                                                     , target_path = schema_path_ttl
+                                                     , target_ext  = "ttl"
+                                                     , force       = force)
+        
     if (dry_run and feasible):
-        print (f"Would have converted schema from YAML {schema_path_yaml} to TTL {schema_path_ttl}")
-        return (True, schema_path_ttl)
+        print (f"Would have converted schema from YAML {schema_path_yaml} to TTL {target_path_ttl}")
+        return (True, target_path_ttl)
     elif (feasible):
         print (f"Proceed with loading schema {schema_path_yaml}")
-        target_schema_obj = SchemaLoader (schema_path_yaml)
-        print ("Generating RDF from provided schema")
-        generator = RDFGenerator (schema = target_schema_obj.schema)#, schemaview = schema_view)
-        print ("Done generating RDF from provided schema, serialising")
-        schema_ttl_description = generator.serialize()
-        print (f"Dumping generated RDF to {schema_path_ttl}")
+        try:
+            target_schema_obj = SchemaLoader (str(schema_path_yaml))
+            print ("Generating RDF from provided schema")
+            generator = RDFGenerator (schema = target_schema_obj.schema)#, schemaview = schema_view)
+            print ("Done generating RDF from provided schema, serialising")
+            schema_ttl_description = generator.serialize()
+        
+            print (f"Dumping generated RDF to {target_path_ttl}")
 
-        schema_output_ttl = codecs.open (schema_path_ttl, "w", "utf-8")
-        schema_output_ttl.write (schema_ttl_description)
-        schema_output_ttl.close ()
-
-        return (True, schema_path_ttl)
+            schema_output_ttl = codecs.open (target_path_ttl, "w", "utf-8")
+            schema_output_ttl.write (schema_ttl_description)
+            schema_output_ttl.close ()
+ 
+            return (True, target_path_ttl)
+        except yaml.scanner.ScannerError:
+            print (f"Conversion of YAML schema {schema_path_yaml} to TTL {target_path_ttl} is not feasible. Is it a valid YAML file?")
+            return (False, target_path_ttl)
     else:
-        print (f"Conversion of schema from YAML {schema_path_yaml} to TTL {schema_path_ttl} is not feasible!")
-        return (False, schema_path_ttl)
+        print (f"Conversion of schema from YAML {schema_path_yaml} to TTL {target_path_ttl} is not feasible!")
+        return (False, target_path_ttl)
 
 def coalesce_manifest (manifest_path      : str
                      , manifest_format    : str

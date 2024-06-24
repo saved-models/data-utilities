@@ -4,6 +4,11 @@ import logging
 import os
 import unittest
 
+'''
+Note here that the tests often end in a `try'/`exception' block for `os.remove'.
+This is a succint, if rough way of checking that the file exists as expected.
+'''
+
 logging_format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'"
 logging_level  = logging.DEBUG
         

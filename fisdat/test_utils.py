@@ -14,26 +14,11 @@ This is a succint, if rough way of checking that the file exists as expected.
 
 logging_format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'"
 logging_level  = logging.DEBUG
-        
-data_model_uri    = "https://marine.gov.scot/metadata/saved/schema/meta.yaml"
-data_model_uri_ne = "https://marine.gov.scot/metadata/saved/schema/.test.yaml"
 
-prefixes          = { "_base": "https://marine.gov.scot/metadata/saved/rap/"
-                    , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
-prefixes_alt      = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt/"
-                    , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
-prefixes_alt_alt  = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt_alt/"
-                    , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
+prefixes = { "_base": "https://marine.gov.scot/metadata/saved/rap/"
+           , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
-manifest_yaml = "/tmp/manifest.yaml"
-manifest_ttl  = "/tmp/manifest.ttl"
-manifest_name = "RootManifest"
-
-data0    = "examples/sentinel_cages/sentinel_cages_cleaned.csv"
-data1    = "examples/sentinel_cages/Sentinel_cage_station_info_6.csv"
-data_ne  = "examples/sentinel_cages/.cagedata.csv"
-data_bad = "examples/sentinel_cages/Sentinel_cage_sampling_info_update_01122022.csv"
-
+data0     = "examples/sentinel_cages/sentinel_cages_cleaned.csv"
 schema0   = "examples/sentinel_cages/sentinel_cages_sampling.yaml"
 schema1   = "examples/sentinel_cages/sentinel_cages_site.yaml"
 schema_ne = "examples/sentinel_cages/.sampling.yaml"
@@ -41,8 +26,7 @@ schema_ne = "examples/sentinel_cages/.sampling.yaml"
 schema_definition0 = SchemaDefinition (
     name           = "KnownGoodSchemaDefinition"
   , id             = "known_good_schema_definition"
-  , prefixes       = { "rap"  : "https://marine.gov.scot/metadata/saved/rap/"
-                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
+  , prefixes       = prefixes
   , default_prefix = "rap"
 )
 schema_definition1 = SchemaDefinition (
@@ -54,22 +38,19 @@ schema_definition1 = SchemaDefinition (
 schema_definition2 = SchemaDefinition (
     name           = "BadDefaultPrefix0"
   , id             = "bad_default_prefix_schema_definition0"
-  , prefixes       = { "rap"  : "https://marine.gov.scot/metadata/saved/rap/"
-                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
+  , prefixes       = prefixes
   , default_prefix = "rap" # default prefix does exist
 )
 schema_definition3 = SchemaDefinition (
     name           = "BadDefaultPrefix1"
   , id             = "bad_default_prefix_schema_definition1"
-  , prefixes       = { "rap"  : "https://marine.gov.scot/metadata/saved/rap/"
-                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
+  , prefixes       = prefixes
   , default_prefix = "curr" # default prefix specified but not in lookup table
 )
 schema_definition4 = SchemaDefinition (
     name           = "BadDefaultPrefix2"
   , id             = "bad_default_prefix_schema_definition2"
-  , prefixes       = { "rap"  : "https://marine.gov.scot/metadata/saved/rap/"
-                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
+  , prefixes       = prefixes
   , default_prefix = None # no default prefix, use fallback
 )
 
