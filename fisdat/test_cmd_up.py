@@ -1,8 +1,10 @@
-from fisdat.cmd_up import convert_feasibility, coalesce_schema
+from fisdat.cmd_dat import manifest_wrapper
+from fisdat.cmd_up import convert_feasibility, coalesce_schema, coalesce_manifest
 
 import logging
 from pathlib import PurePath
 import os
+from shutil import copytree, rmtree, ignore_patterns
 import unittest
 
 '''
@@ -22,10 +24,6 @@ prefixes_alt      = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt/"
                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 prefixes_alt_alt  = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt_alt/"
                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
-
-manifest_yaml = "/tmp/manifest.yaml"
-manifest_ttl  = "/tmp/manifest.ttl"
-manifest_name = "RootManifest"
 
 data0    = PurePath ("examples/sentinel_cages/sentinel_cages_cleaned.csv")
 data1    = PurePath ("examples/sentinel_cages/Sentinel_cage_station_info_6.csv")
@@ -111,7 +109,7 @@ class TestFeasibility (unittest.TestCase):
         )
         self.assertTrue (test_signal and target_path == schema_yaml0)
 
-class TestConversion (unittest.TestCase):
+class TestConvertSchema (unittest.TestCase):
     '''
     Conversion of schemata
 
@@ -121,40 +119,113 @@ class TestConversion (unittest.TestCase):
     def test_schema0 (self):
         print ("Schema conversion case 1: YAML to TTL should be feasible")
 
-        res = PurePath ("/tmp/sentinel_cages_sampling0.ttl")
+        res = "/tmp/sentinel_cages_sampling0.ttl"
         
         (test_signal, target_path) = coalesce_schema (
-            schema_path_yaml = schema_yaml0
+            schema_path_yaml = str(schema_yaml0)
           , schema_path_ttl  = res
           , dry_run          = False
           , force            = False
         )
         try:
             os.remove (res)
-            self.assertTrue (test_signal and target_path == res)
+            self.assertTrue (test_signal and target_path == PurePath (res))
         except FileNotFoundError as e:
             self.assertTrue (bool(e))
 
     def test_schema1 (self):
         print ("Schema conversion case 2: TTL to YAML conversion should error")
 
-        res_ttl  = PurePath ("/tmp/sentinel_cages_sampling1.ttl")
-        res_yaml = PurePath ("/tmp/sentinel_cages_sampling1.yaml")
+        res_ttl  = "/tmp/sentinel_cages_sampling1.ttl"
+        res_yaml = "/tmp/sentinel_cages_sampling1.yaml"
 
         (test_signal_ttl, target_path_ttl) = coalesce_schema (
-            schema_path_yaml = schema_yaml0
+            schema_path_yaml = str(schema_yaml0)
           , schema_path_ttl  = res_ttl
           , dry_run          = False
           , force            = False
         )
         (test_signal_yaml, target_path_yaml) = coalesce_schema (
-            schema_path_yaml = target_path_ttl
+            schema_path_yaml = str(target_path_ttl)
           , schema_path_ttl  = res_yaml
           , dry_run          = False
           , force            = False
         )
         try:
             os.remove (res_ttl)
-            self.assertTrue (all ([test_signal_ttl, target_path_ttl == res_ttl, not test_signal_yaml]))
+            self.assertTrue (all ([test_signal_ttl, target_path_ttl == PurePath(res_ttl), not test_signal_yaml]))
         except FileNotFoundError as e:
             self.assertTrue (bool(e))
+
+class TestConvertManifest (unittest.TestCase):
+    '''
+    Case 1: Build up known-good TTL data with cmd_dat.      -> (True, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_name)
+    Case 2: Build up known-good YAML data with cmd_dat.     -> as in (1)
+    Case 2: Manifest path does not exist                    -> (False, None, ...)
+    Case 3: Data model URI is invalid                       -> (False, None, ...)
+    Case 4: Try loading YAML with "ttl" `manifest_format'   -> (False, None, ...)
+    Case 5: Try loading TTL with "yaml" `manifest_format'   -> (False, None, ...)
+    Case 6: Some invalid `manifest_format' e.g. "jsonld"    -> (False, None, ...)
+    Case 7: Conversion to TTL not feasible (e.g. paths)     -> as in (1), (2), but signal is False
+    Case 8: Conversion to TTL not feasible, but force:=True -> as in (1), (2)
+
+    def coalesce_manifest (manifest_path      : str
+                     , manifest_format    : str
+                     , data_model_uri     : str
+                     , prefixes           : dict[str, str]
+                     , gcp_source         : str
+                     , dry_run            : bool
+                     , force              : bool) -> (bool, ManifestDesc, str, str, str, str):
+    
+    '''
+
+    def test_manifest0 (self):
+        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+        
+        test_initialise = manifest_wrapper (
+            data           = str(data0)
+          , schema         = str(schema_yaml0)
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/manifest0.yaml"
+          , manifest_name  = "LeafManifest0"
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "yaml"
+        )
+        test_append = manifest_wrapper (
+            data           = str(data1)
+          , schema         = str(schema_yaml1)
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/manifest0.yaml"
+          , manifest_name  = "LeafManifest0"
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "yaml"
+        )
+        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
+            manifest_path   = "/tmp/manifest0.yaml"
+          , manifest_format = "yaml"
+          , data_model_uri  = data_model_uri
+          , prefixes        = prefixes
+          , gcp_source      = None
+          , dry_run         = False
+          , force           = False
+          , fake_cwd        = "/tmp/examples/sentinel_cages/"
+        )
+        try:
+            os.remove ("/tmp/manifest0.yaml")
+            os.remove ("/tmp/manifest0.ttl")
+            rmtree ("/tmp/examples/sentinel_cages")
+            self.assertTrue (all ([test_initialise, test_append, test_signal
+                                 , test_path_yaml == PurePath ("/tmp/manifest0.yaml")
+                                 , test_path_ttl  == PurePath ("/tmp/manifest0.ttl")
+                                 , test_uri       == "https://marine.gov.scot/metadata/saved/rap/LeafManifest0"
+                                 , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
+                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.ttl"
+                                 , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
+                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.ttl"]))
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+            
+        
+                             
