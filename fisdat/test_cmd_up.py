@@ -2,11 +2,10 @@ from fisdat.cmd_dat import manifest_wrapper
 from fisdat.cmd_up import convert_feasibility, coalesce_schema, coalesce_manifest
 
 import logging
-from pathlib import PurePath
+from pathlib import Path, PurePath
 import os
 from shutil import copytree, rmtree, ignore_patterns
 import unittest
-
 '''
 Note here that the tests often end in a `try'/`exception' block for `os.remove'.
 This is a succint, if rough way of checking that the file exists as expected.
@@ -156,11 +155,11 @@ class TestConvertSchema (unittest.TestCase):
             self.assertTrue (all ([test_signal_ttl, target_path_ttl == PurePath(res_ttl), not test_signal_yaml]))
         except FileNotFoundError as e:
             self.assertTrue (bool(e))
-
+            
 class TestConvertManifest (unittest.TestCase):
     '''
-    Case 1: Build up known-good TTL data with cmd_dat.      -> (True, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_name)
-    Case 2: Build up known-good YAML data with cmd_dat.     -> as in (1)
+    Case 1: Build up known-good YAML data with cmd_dat      -> (True, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_name)
+    Case 2: Build up known-good TTL data with cmd_dat       -> as in (1)
     Case 2: Manifest path does not exist                    -> (False, None, ...)
     Case 3: Data model URI is invalid                       -> (False, None, ...)
     Case 4: Try loading YAML with "ttl" `manifest_format'   -> (False, None, ...)
@@ -181,13 +180,18 @@ class TestConvertManifest (unittest.TestCase):
 
     def test_manifest0 (self):
         copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+
+        output_name        = "LeafManifest0"
+        output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest0"
+        output_manifest    = "/tmp/manifest0.yaml"
+        converted_manifest = "/tmp/manifest0.ttl"
         
         test_initialise = manifest_wrapper (
             data           = str(data0)
           , schema         = str(schema_yaml0)
           , data_model_uri = data_model_uri
-          , manifest       = "/tmp/manifest0.yaml"
-          , manifest_name  = "LeafManifest0"
+          , manifest       = output_manifest
+          , manifest_name  = output_name
           , validate       = True
           , prefixes       = prefixes
           , serialise_mode = "yaml"
@@ -196,14 +200,14 @@ class TestConvertManifest (unittest.TestCase):
             data           = str(data1)
           , schema         = str(schema_yaml1)
           , data_model_uri = data_model_uri
-          , manifest       = "/tmp/manifest0.yaml"
-          , manifest_name  = "LeafManifest0"
+          , manifest       = output_manifest
+          , manifest_name  = output_name
           , validate       = True
           , prefixes       = prefixes
           , serialise_mode = "yaml"
         )
         (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
-            manifest_path   = "/tmp/manifest0.yaml"
+            manifest_path   = output_manifest
           , manifest_format = "yaml"
           , data_model_uri  = data_model_uri
           , prefixes        = prefixes
@@ -213,19 +217,351 @@ class TestConvertManifest (unittest.TestCase):
           , fake_cwd        = "/tmp/examples/sentinel_cages/"
         )
         try:
-            os.remove ("/tmp/manifest0.yaml")
-            os.remove ("/tmp/manifest0.ttl")
+            os.remove (output_manifest)
+            os.remove (converted_manifest)
             rmtree ("/tmp/examples/sentinel_cages")
             self.assertTrue (all ([test_initialise, test_append, test_signal
-                                 , test_path_yaml == PurePath ("/tmp/manifest0.yaml")
-                                 , test_path_ttl  == PurePath ("/tmp/manifest0.ttl")
-                                 , test_uri       == "https://marine.gov.scot/metadata/saved/rap/LeafManifest0"
+                                 , test_path_yaml == PurePath (output_manifest)
+                                 , test_path_ttl  == PurePath (converted_manifest)
+                                 , test_uri       == output_uri
                                  , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
                                  , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.ttl"
                                  , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
                                  , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.ttl"]))
         except FileNotFoundError as e:
             self.assertTrue (bool(e))
-            
+
+    def test_manifest1 (self):
+        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+
+        output_name        = "LeafManifest1"
+        output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest1"
+        output_manifest    = "/tmp/manifest1.ttl"
+        converted_manifest = "/tmp/manifest1.yaml"
         
-                             
+        test_initialise = manifest_wrapper (
+            data           = str(data0)
+          , schema         = str(schema_yaml0)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        test_append = manifest_wrapper (
+            data           = str(data1)
+          , schema         = str(schema_yaml1)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
+            manifest_path   = output_manifest
+          , manifest_format = "ttl"
+          , data_model_uri  = data_model_uri
+          , prefixes        = prefixes
+          , gcp_source      = None
+          , dry_run         = False
+          , force           = False
+          , fake_cwd        = "/tmp/examples/sentinel_cages/"
+        )
+        try:
+            os.remove (output_manifest)
+            os.remove (converted_manifest)
+            rmtree ("/tmp/examples/sentinel_cages")
+            self.assertTrue (all ([test_initialise, test_append, test_signal
+                                 , test_path_yaml == PurePath (converted_manifest) ##
+                                 , test_path_ttl  == PurePath (output_manifest)    ##
+                                 , test_uri       == output_uri
+                                 , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
+                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.ttl"
+                                 , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
+                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.ttl"]))
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+
+    def test_manifest2 (self):
+        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
+            manifest_path   = "/tmp/manifest2.ttl"
+          , manifest_format = "ttl"
+          , data_model_uri  = data_model_uri
+          , prefixes        = prefixes
+          , gcp_source      = None
+          , dry_run         = False
+          , force           = False
+          , fake_cwd        = "/tmp/examples/sentinel_cages/"
+        )
+        self.assertTrue (all ([not test_signal, test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
+
+    def test_manifest3 (self):
+        res = "/tmp/manifest3.yaml"
+        Path (res).touch ()
+        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
+            manifest_path   = res
+          , manifest_format = "yaml"
+          , data_model_uri  = data_model_uri_ne
+          , prefixes        = prefixes
+          , gcp_source      = None
+          , dry_run         = False
+          , force           = False
+          , fake_cwd        = "/tmp/examples/sentinel_cages/"
+        )
+        try:
+            os.remove (res)
+            self.assertTrue (all ([not test_signal, test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+        
+    def test_manifest4 (self):
+        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+
+        output_name        = "LeafManifest4"
+        output_manifest    = "/tmp/manifest4.yaml"
+        
+        test_initialise = manifest_wrapper (
+            data           = str(data0)
+          , schema         = str(schema_yaml0)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "yaml"
+        )
+        test_append = manifest_wrapper (
+            data           = str(data1)
+          , schema         = str(schema_yaml1)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "yaml"
+        )
+        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
+            manifest_path   = output_manifest
+          , manifest_format = "ttl"
+          , data_model_uri  = data_model_uri
+          , prefixes        = prefixes
+          , gcp_source      = None
+          , dry_run         = False
+          , force           = False
+          , fake_cwd        = "/tmp/examples/sentinel_cages/"
+        )
+        try:
+            os.remove (output_manifest)
+            rmtree ("/tmp/examples/sentinel_cages")
+            self.assertTrue (all ([test_initialise, test_append
+                                 , not test_signal
+                                 , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+
+    def test_manifest5 (self):
+        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+
+        output_name        = "LeafManifest5"
+        output_manifest    = "/tmp/manifest5.ttl"
+        
+        test_initialise = manifest_wrapper (
+            data           = str(data0)
+          , schema         = str(schema_yaml0)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        test_append = manifest_wrapper (
+            data           = str(data1)
+          , schema         = str(schema_yaml1)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
+            manifest_path   = output_manifest
+          , manifest_format = "yaml"
+          , data_model_uri  = data_model_uri
+          , prefixes        = prefixes
+          , gcp_source      = None
+          , dry_run         = False
+          , force           = False
+          , fake_cwd        = "/tmp/examples/sentinel_cages/"
+        )
+        try:
+            os.remove (output_manifest)
+            rmtree ("/tmp/examples/sentinel_cages")
+            self.assertTrue (all ([test_initialise, test_append
+                                 , not test_signal
+                                 , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+
+    def test_manifest6 (self):
+        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+
+        output_name        = "LeafManifest6"
+        output_manifest    = "/tmp/manifest6.ttl"
+        
+        test_initialise = manifest_wrapper (
+            data           = str(data0)
+          , schema         = str(schema_yaml0)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        test_append = manifest_wrapper (
+            data           = str(data1)
+          , schema         = str(schema_yaml1)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        
+        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
+            manifest_path   = output_manifest
+          , manifest_format = "jsonld"
+          , data_model_uri  = data_model_uri
+          , prefixes        = prefixes
+          , gcp_source      = None
+          , dry_run         = False
+          , force           = False
+          , fake_cwd        = "/tmp/examples/sentinel_cages/"
+        )
+        try:
+            os.remove (output_manifest)
+            rmtree ("/tmp/examples/sentinel_cages")
+            self.assertTrue (all ([test_initialise, test_append
+                                 , not test_signal
+                                 , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+
+    def test_manifest7 (self):
+        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+
+        output_name        = "LeafManifest7"
+        output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest7"
+        output_manifest    = "/tmp/manifest7.ttl"
+        converted_manifest = "/tmp/manifest7.yaml"
+        
+        test_initialise = manifest_wrapper (
+            data           = str(data0)
+          , schema         = str(schema_yaml0)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        test_append = manifest_wrapper (
+            data           = str(data1)
+          , schema         = str(schema_yaml1)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+
+        Path (converted_manifest).touch ()
+        
+        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
+            manifest_path   = output_manifest
+          , manifest_format = "ttl"
+          , data_model_uri  = data_model_uri
+          , prefixes        = prefixes
+          , gcp_source      = None
+          , dry_run         = False
+          , force           = False
+          , fake_cwd        = "/tmp/examples/sentinel_cages/"
+        )
+        try:
+            os.remove (output_manifest)
+            os.remove (converted_manifest)
+            rmtree ("/tmp/examples/sentinel_cages")
+            self.assertTrue (all ([test_initialise, test_append
+                                 , not test_signal
+                                 , test_path_yaml == PurePath (converted_manifest)
+                                 , test_path_ttl  == PurePath (output_manifest)
+                                 , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
+                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.ttl"
+                                 , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
+                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.ttl"
+                                 , test_uri       == output_uri]))
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+
+    def test_manifest8 (self):
+        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+
+        output_name        = "LeafManifest8"
+        output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest8"
+        output_manifest    = "/tmp/manifest8.ttl"
+        converted_manifest = "/tmp/manifest8.yaml"
+        
+        test_initialise = manifest_wrapper (
+            data           = str(data0)
+          , schema         = str(schema_yaml0)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+        test_append = manifest_wrapper (
+            data           = str(data1)
+          , schema         = str(schema_yaml1)
+          , data_model_uri = data_model_uri
+          , manifest       = output_manifest
+          , manifest_name  = output_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "ttl"
+        )
+
+        Path (converted_manifest).touch ()
+        
+        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
+            manifest_path   = output_manifest
+          , manifest_format = "ttl"
+          , data_model_uri  = data_model_uri
+          , prefixes        = prefixes
+          , gcp_source      = None
+          , dry_run         = False
+          , force           = True
+          , fake_cwd        = "/tmp/examples/sentinel_cages/"
+        )
+        try:
+            os.remove (output_manifest)
+            os.remove (converted_manifest)
+            rmtree ("/tmp/examples/sentinel_cages")
+            self.assertTrue (all ([test_initialise, test_append, test_signal
+                                 , test_path_yaml == PurePath (converted_manifest) ##
+                                 , test_path_ttl  == PurePath (output_manifest)    ##
+                                 , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
+                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.ttl"
+                                 , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
+                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.ttl"
+                                 , test_uri       == output_uri]))
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+    

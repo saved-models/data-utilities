@@ -16,6 +16,7 @@ from typing import Optional
 import uuid
 
 import rdflib.plugins.parsers.notation3
+import urllib.error
 import yaml.scanner
 
 from linkml.generators.pythongen     import PythonGenerator
@@ -301,8 +302,7 @@ def coalesce_manifest (manifest_path      : str
 
             # We've already caught the exceptions above, so these shouldn't fail. If they do, it's unlikely to be because of the format, so leave as-is.
             if (manifest_format == "ttl"):
-                dumper.dump (manifest_obj, manifest_path_yaml
-                           , schemaview = py_data_model_view)
+                dumper.dump (manifest_obj, manifest_path_yaml)
                 return (True, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_uri)
             else:
                 dumper.dump (manifest_obj, manifest_path_ttl
@@ -311,7 +311,7 @@ def coalesce_manifest (manifest_path      : str
                 return (True, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_uri)
             
         else:
-            print ("Conversion of YAML manifest object to TTL was not successful!")
+            print ("Conversion of YAML manifest object to TTL is not feasible!")
             return (False, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_uri)
     
 def cli () -> None:
