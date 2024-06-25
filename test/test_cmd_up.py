@@ -113,6 +113,7 @@ class TestConvertSchema (unittest.TestCase):
 
     Case 1: YAML to TTL conversion (should succeed)
     Case 2: TTL to YAML conversion (should fail, we don't care about this)
+    Case 3: Conversion with --dry-run option (should succeed even if invalid)
     '''
     def test_schema0 (self):
         print ("Schema conversion case 1: YAML to TTL should be feasible")
@@ -129,7 +130,7 @@ class TestConvertSchema (unittest.TestCase):
             os.remove (res)
             self.assertTrue (test_signal and target_path == PurePath (res))
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_schema1 (self):
         print ("Schema conversion case 2: TTL to YAML conversion should error")
@@ -153,7 +154,24 @@ class TestConvertSchema (unittest.TestCase):
             os.remove (res_ttl)
             self.assertTrue (all ([test_signal_ttl, target_path_ttl == PurePath(res_ttl), not test_signal_yaml]))
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
+
+    def test_schema2 (self):
+        print ("Schema conversion case 3: Imfeasible conversion, but set `dry-run'")
+        
+        res = "/tmp/sentinel_cages_sampling2.ttl"
+        
+        (test_signal, target_path) = coalesce_schema (
+            schema_path_yaml = str(schema_yaml0)
+          , schema_path_ttl  = res
+          , dry_run          = True
+          , force            = False
+        )
+        try:
+            os.remove (res)
+            self.assertTrue (test_signal and target_path == PurePath (res))
+        except FileNotFoundError as e:
+            self.assertFalse (bool(e))
             
 class TestConvertManifest (unittest.TestCase):
     '''
@@ -166,15 +184,9 @@ class TestConvertManifest (unittest.TestCase):
     Case 6: Some invalid `manifest_format' e.g. "jsonld"    -> (False, None, ...)
     Case 7: Conversion to TTL not feasible (e.g. paths)     -> as in (1), (2), but signal is False
     Case 8: Conversion to TTL not feasible, but force:=True -> as in (1), (2)
-
-    def coalesce_manifest (manifest_path      : str
-                     , manifest_format    : str
-                     , data_model_uri     : str
-                     , prefixes           : dict[str, str]
-                     , gcp_source         : str
-                     , dry_run            : bool
-                     , force              : bool) -> (bool, ManifestDesc, str, str, str, str):
     
+    Case 9: Build manifest with schema validation disabled (bad schema) -> as in (1, 2), but signal is False
+    Case 10: As in (9), but disable validation                          -> as in (1), (2)    
     '''
 
     def test_manifest0 (self):
@@ -183,7 +195,7 @@ class TestConvertManifest (unittest.TestCase):
         output_name        = "LeafManifest0"
         output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest0"
         output_manifest    = "/tmp/manifest0.yaml"
-        converted_manifest = "/tmp/manifest0.ttl"
+        converted_manifest = "/tmp/manifest0.converted.ttl"
         
         test_initialise = manifest_wrapper (
             data           = str(data0)
@@ -224,11 +236,11 @@ class TestConvertManifest (unittest.TestCase):
                                  , test_path_ttl  == PurePath (converted_manifest)
                                  , test_uri       == output_uri
                                  , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
-                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.ttl"
+                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.converted.ttl"
                                  , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
-                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.ttl"]))
+                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.converted.ttl"]))
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest1 (self):
         copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
@@ -236,7 +248,7 @@ class TestConvertManifest (unittest.TestCase):
         output_name        = "LeafManifest1"
         output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest1"
         output_manifest    = "/tmp/manifest1.ttl"
-        converted_manifest = "/tmp/manifest1.yaml"
+        converted_manifest = "/tmp/manifest1.converted.yaml"
         
         test_initialise = manifest_wrapper (
             data           = str(data0)
@@ -277,11 +289,11 @@ class TestConvertManifest (unittest.TestCase):
                                  , test_path_ttl  == PurePath (output_manifest)    ##
                                  , test_uri       == output_uri
                                  , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
-                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.ttl"
+                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.converted.ttl"
                                  , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
-                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.ttl"]))
+                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.converted.ttl"]))
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest2 (self):
         (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
@@ -313,7 +325,7 @@ class TestConvertManifest (unittest.TestCase):
             os.remove (res)
             self.assertTrue (all ([not test_signal, test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
         
     def test_manifest4 (self):
         copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
@@ -358,7 +370,7 @@ class TestConvertManifest (unittest.TestCase):
                                  , not test_signal
                                  , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest5 (self):
         copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
@@ -403,7 +415,7 @@ class TestConvertManifest (unittest.TestCase):
                                  , not test_signal
                                  , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest6 (self):
         copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
@@ -449,7 +461,7 @@ class TestConvertManifest (unittest.TestCase):
                                  , not test_signal
                                  , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest7 (self):
         copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
@@ -457,7 +469,7 @@ class TestConvertManifest (unittest.TestCase):
         output_name        = "LeafManifest7"
         output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest7"
         output_manifest    = "/tmp/manifest7.ttl"
-        converted_manifest = "/tmp/manifest7.yaml"
+        converted_manifest = "/tmp/manifest7.converted.yaml"
         
         test_initialise = manifest_wrapper (
             data           = str(data0)
@@ -501,12 +513,12 @@ class TestConvertManifest (unittest.TestCase):
                                  , test_path_yaml == PurePath (converted_manifest)
                                  , test_path_ttl  == PurePath (output_manifest)
                                  , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
-                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.ttl"
+                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.converted.ttl"
                                  , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
-                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.ttl"
+                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.converted.ttl"
                                  , test_uri       == output_uri]))
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest8 (self):
         copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
@@ -514,7 +526,7 @@ class TestConvertManifest (unittest.TestCase):
         output_name        = "LeafManifest8"
         output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest8"
         output_manifest    = "/tmp/manifest8.ttl"
-        converted_manifest = "/tmp/manifest8.yaml"
+        converted_manifest = "/tmp/manifest8.converted.yaml"
         
         test_initialise = manifest_wrapper (
             data           = str(data0)
@@ -557,10 +569,9 @@ class TestConvertManifest (unittest.TestCase):
                                  , test_path_yaml == PurePath (converted_manifest) ##
                                  , test_path_ttl  == PurePath (output_manifest)    ##
                                  , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
-                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.ttl"
+                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.converted.ttl"
                                  , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
-                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.ttl"
+                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.converted.ttl"
                                  , test_uri       == output_uri]))
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
-    
+            self.assertFalse (bool(e))
