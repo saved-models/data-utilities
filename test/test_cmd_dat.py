@@ -16,13 +16,13 @@ data_model_uri    = "https://marine.gov.scot/metadata/saved/schema/meta.yaml"
 data_model_uri_ne = "https://marine.gov.scot/metadata/saved/schema/.test.yaml"
 
 prefixes          = { "_base": "https://marine.gov.scot/metadata/saved/rap/"
-                    , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
+                    , "rap"  : "https://marine.gov.scot/metadata/saved/rap/"
                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 prefixes_alt      = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt/"
-                    , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
+                    , "rap"  : "https://marine.gov.scot/metadata/saved/rap/"
                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 prefixes_alt_alt  = { "_base": "https://marine.gov.scot/metadata/saved/rap_alt_alt/"
-                    , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
+                    , "rap"  : "https://marine.gov.scot/metadata/saved/rap/"
                     , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
 manifest_yaml = "/tmp/manifest.yaml"
@@ -55,6 +55,10 @@ class TestAppend (unittest.TestCase):
     Case 6: TTL manifest init (default base), TTL manifest append (alt base)     -> True
     Case 7: TTL manifest init (alt base), TTL manifest append (alt base #2)      -> True
     Case 8: TTL manifest init (good ontology URI), TTL manifest append (bad URI) -> False
+
+    Case 9:  YAML manifest init (validated data), YAML manifest append (unvalidated data)
+    Case 10: YAML manifest init (unvalidated data), YAML manifest append (validated data)
+    Case 11: YAML manifest init (unvalidated data), YAML manifest append (unvalidated data)
     '''
 
     def test_manifest_append0 (self):
@@ -84,7 +88,7 @@ class TestAppend (unittest.TestCase):
             os.remove ("/tmp/append0.yaml")
             self.assertTrue (test_initialise and test_append)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest_append1 (self):
         print ("Test case #2: TTL manifest init, TTL manifest append")
@@ -113,7 +117,7 @@ class TestAppend (unittest.TestCase):
             os.remove ("/tmp/append1.ttl")
             self.assertTrue (test_initialise and test_append)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest_append2 (self):
         print ("Test case #3: YAML manifest init, TTL manifest append")
@@ -142,7 +146,7 @@ class TestAppend (unittest.TestCase):
             os.remove ("/tmp/append2.yaml")
             self.assertTrue (test_initialise and not test_append)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest_append3 (self):
         print ("Test case #4: TTL manifest init, YAML manifest append")
@@ -171,7 +175,7 @@ class TestAppend (unittest.TestCase):
             os.remove ("/tmp/append3.ttl")
             self.assertTrue (test_initialise and not test_append)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest_append4 (self):
         print ("Test case #5: YAML manifest init (default base), YAML manifest append (alt. base)")
@@ -200,7 +204,7 @@ class TestAppend (unittest.TestCase):
             os.remove ("/tmp/append4.yaml")
             self.assertTrue (test_initialise and test_append)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest_append5 (self):
         print ("Test case #6: TTL manifest init (default base), TTL manifest append (alt. base)")
@@ -229,7 +233,7 @@ class TestAppend (unittest.TestCase):
             os.remove ("/tmp/append5.ttl")
             self.assertTrue (test_initialise and test_append)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest_append6 (self):
         print ("Test case #7: TTL manifest init (alt. base), TTL manifest append (alt. base #2)")
@@ -258,7 +262,7 @@ class TestAppend (unittest.TestCase):
             os.remove ("/tmp/append6.ttl")
             self.assertTrue (test_initialise and test_append)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest_append7 (self):
         print ("Test case #8: TTL manifest init (good ontology URI), TTL manifest append (bad URI)")
@@ -287,7 +291,65 @@ class TestAppend (unittest.TestCase):
             os.remove ("/tmp/append7.ttl")
             self.assertTrue (test_initialise and not test_append)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
+
+    def test_manifest_append8 (self):
+        print ("Test case #9: Init validated data, append unvalidated data")
+
+        test_initialise = manifest_wrapper (
+            data           = data0
+          , schema         = schema0
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append8.yaml"
+          , manifest_name  = manifest_name
+          , validate       = True
+          , prefixes       = prefixes
+          , serialise_mode = "yaml"
+        )
+        test_append = manifest_wrapper (
+            data           = data1
+          , schema         = schema0
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append8.yaml"
+          , manifest_name  = manifest_name
+          , validate       = False
+          , prefixes       = prefixes
+          , serialise_mode = "yaml"
+        )
+        try:
+            os.remove ("/tmp/append8.yaml")
+            self.assertTrue (test_initialise and test_append)
+        except FileNotFoundError as e:
+            self.assertFalse (bool(e))
+
+    def test_manifest_append9 (self):
+        print ("Test case #10: Init unvalidated data, append unvalidated data")
+
+        test_initialise = manifest_wrapper (
+            data           = data0
+          , schema         = schema0
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append9.yaml"
+          , manifest_name  = manifest_name
+          , validate       = False
+          , prefixes       = prefixes
+          , serialise_mode = "yaml"
+        )
+        test_append = manifest_wrapper (
+            data           = data1
+          , schema         = schema0
+          , data_model_uri = data_model_uri
+          , manifest       = "/tmp/append9.yaml"
+          , manifest_name  = manifest_name
+          , validate       = False
+          , prefixes       = prefixes
+          , serialise_mode = "yaml"
+        )
+        try:
+            os.remove ("/tmp/append9.yaml")
+            self.assertTrue (test_initialise and test_append)
+        except FileNotFoundError as e:
+            self.assertFalse (bool(e))
     
 class TestInit (unittest.TestCase):
     '''
@@ -327,7 +389,7 @@ class TestInit (unittest.TestCase):
             os.remove ("/tmp/initialise0.yaml")
             self.assertTrue (test)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
     
     def test_manifest_init1 (self):
         print ("Test case #2: Neither data nor YAML schema exist")
@@ -401,7 +463,7 @@ class TestInit (unittest.TestCase):
             os.remove ("/tmp/initialise5.yaml")
             self.assertTrue (test)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest_init6 (self):
         print ("Test case #7: Known-good test data, non-standard @base prefix, YAML")
@@ -420,7 +482,7 @@ class TestInit (unittest.TestCase):
             os.remove ("/tmp/initialise6.yaml")
             self.assertTrue (test)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest_init7 (self):
         print ("Test case #8: Known-good test data, non-standard @base prefix, TTL")
@@ -439,7 +501,7 @@ class TestInit (unittest.TestCase):
             os.remove ("/tmp/initialise7.ttl")
             self.assertTrue (test)
         except FileNotFoundError as e:
-            self.assertTrue (bool(e))
+            self.assertFalse (bool(e))
 
     def test_manifest_init8 (self): 
        print ("Test case #9: Known-good test data, malformed ontology URI")
@@ -456,3 +518,21 @@ class TestInit (unittest.TestCase):
        )
        self.assertFalse (test)
        
+    def test_manifest_init_9 (self):
+        print ("Test case #10: Initialise with unvalidated data")
+
+        test = manifest_wrapper (
+           data           = data0
+         , schema         = schema1
+         , data_model_uri = data_model_uri
+         , manifest       = "/tmp/initialise9.ttl"
+         , manifest_name  = manifest_name
+         , validate       = False
+         , prefixes       = prefixes_alt
+         , serialise_mode = "ttl"
+        )
+        try:
+            os.remove ("/tmp/initialise9.ttl")
+            self.assertTrue (test)
+        except FileNotFoundError as e:
+            self.assertFalse (bool(e))
