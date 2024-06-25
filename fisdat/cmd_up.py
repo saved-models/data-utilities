@@ -180,7 +180,6 @@ def coalesce_schema (schema_path_yaml : str
         print (f"Conversion of schema from YAML {schema_path_yaml} to TTL {target_path_ttl} is not feasible!")
         return (False, target_path_ttl)
 
-    
 def coalesce_manifest (manifest_path   : str
                      , manifest_format : str
                      , data_model_uri  : str
@@ -188,7 +187,6 @@ def coalesce_manifest (manifest_path   : str
                      , gcp_source      : str
                      , dry_run         : bool
                      , force           : bool
-                     , validate        : bool = True
                      , conversion_stem : str  = "converted"
                      , fake_cwd        : str  = ""
     ) -> (bool, Optional[ManifestDesc], Optional[str], Optional[str], Optional[str], Optional[str]):
@@ -276,11 +274,11 @@ def coalesce_manifest (manifest_path   : str
     '''
     4. Validate/convert tables in manifest file
     '''
-    if (dry_run or not validate):   
+    if (dry_run):   
         for tab in manifest_obj.tables:
             fake_path_yaml             = f"{fake_cwd}{tab.schema_path_yaml}" 
             (schema_success, path_ttl) = coalesce_schema (schema_path_yaml = fake_path_yaml
-                                                        , dry_run          = dry_run or not validate
+                                                        , dry_run          = dry_run
                                                         , force            = False
                                                         , conversion_stem  = conversion_stem)
             tab.schema_path_ttl        = path_ttl.name
@@ -380,9 +378,6 @@ def cli () -> None:
     parser.add_argument ("--base-prefix"
                        , help     = "RDF `@base' prefix from which manifest, results, data and descriptive statistics may be served."
                        , default  = "https://marine.gov.scot/metadata/saved/rap/")
-    parser.add_argument ("--no-validate"
-                       , help     = "Disable schema validation/conversion when converting manifest"
-                       , action   = "store_true")
     parser.add_argument ("-n", "--no-upload", "--dry-run"
                        , help     = "Don't upload files"
                        , action   = "store_true")
@@ -423,25 +418,13 @@ def cli () -> None:
                , "rap"  : "https://marine.gov.scot/metadata/saved/rap/"
                , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
-    # Case 1: no_upload is set -> set both
-    # Case 2: no_upload is not set, set 
-    #if args.no_upload:
-    #    print ("No upload (`--no-upload') option is set, neither validate/convert schema nor upload files")
-    #    no_validate = True
-    #    dry_run     = True
-    #else:
-    #    no_validate = args.no_validate
-    #    dry_run     = args.no_upload
-    no_validate = args.no_validate
-    no_upload   = args.no_upload
-
     (test_signal, manifest_obj, manifest_yaml, manifest_ttl, manifest_uri) = coalesce_manifest (
             manifest_path      = args.manifest
           , manifest_format    = args.manifest_format
           , data_model_uri     = args.data_model_uri
           , prefixes           = prefixes
           , gcp_source         = data_source_email
-          , dry_run            = dry_run
+          , dry_run            = args.no_upload
           , force              = args.force
         )
 

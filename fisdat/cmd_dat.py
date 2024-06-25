@@ -108,7 +108,7 @@ def append_job_manifest (data           : str
     logging.info ("Generating base job description")
     schema_obj        = SchemaLoader (schema).schema
     schema_properties = schema_components_helper (schema_obj)
-    target_set_atomic = schema_properties ["atomic_name"]
+    target_set_atomic = data_path.stem
 
     if (data_path.name != str(data_path)):
         print ("Warning: Data file does not seem to be located in current working directory, need to move this here upon upload with `fisup'")

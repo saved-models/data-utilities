@@ -29,11 +29,15 @@ data_ne  = PurePath ("examples/sentinel_cages/.cagedata.csv")
 data_bad = PurePath ("examples/sentinel_cages/Sentinel_cage_sampling_info_update_01122022.csv")
 
 schema_yaml0   = PurePath ("examples/sentinel_cages/sentinel_cages_sampling.yaml")
+schema_yaml0_c = PurePath ("examples/sentinel_cages/sentinel_cages_sampling.converted.yaml")
 schema_yaml1   = PurePath ("examples/sentinel_cages/sentinel_cages_site.yaml")
+schema_yaml1_c = PurePath ("examples/sentinel_cages/sentinel_cages_site.converted.yaml")
 schema_yaml_ne = PurePath ("examples/sentinel_cages/.sampling.yaml")
 
 schema_ttl0    = PurePath ("examples/sentinel_cages/sentinel_cages_sampling.ttl")
+schema_ttl0_c  = PurePath ("examples/sentinel_cages/sentinel_cages_sampling.converted.ttl")
 schema_ttl1    = PurePath ("examples/sentinel_cages/sentinel_cages_site.ttl")
+schema_ttl1_c  = PurePath ("examples/sentinel_cages/sentinel_cages_site.converted.ttl")
 schema_ttl_ne  = PurePath ("examples/sentinel_cages/.sampling.ttl")
 
 class TestFeasibility (unittest.TestCase):
@@ -172,130 +176,171 @@ class TestConvertSchema (unittest.TestCase):
             self.assertTrue (test_signal and target_path == PurePath (res))
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
-            
+
+
+def gen_test_manifest (self, message, n
+                     , man_in, man_conv
+                     , ont #,tmpcwd
+                     , res0, sch0, sch0conv, man_fmt0
+                     , res1, sch1, sch1conv, man_fmt1
+                     , man_fmt_out, force_out, man_fmt_conv
+                     , val0, val1, dry_run_out
+                     , exp0, exp1, exp_out):
+    print (f"Manifest conversion case {n+1}: {message}")
+    print (f"""For this test:
+      Manifest to work on: {man_in}
+      Manifest to convert to: {man_conv}
+      Initialisation: Data file {res0}, input schema file {sch0}, converted schema file {sch0conv}, manifest working format {man_fmt0}
+      Append:         Data file {res1}, input schema file {sch1}, converted schema file {sch1conv}, manifest working format {man_fmt1}
+      Coalesce format: {man_fmt_out} (force: {force_out}), manifest convert to {man_conv}
+      Validate on init: {val0}
+      Validate on output: {val1}
+      Simulate manifest conversion: {dry_run_out}
+      Expected results: Initialisation: {exp0}; Append: {exp1}; Conversion: {exp_out}
+    """)
+    copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+
+    output_name        = f"LeafManifest{n}"
+    output_uri         = f"https://marine.gov.scot/metadata/saved/rap/LeafManifest{n}"
+    output_manifest    = f"/tmp/manifest{n}.{man_fmt0}"
+    converted_manifest = f"/tmp/manifest{n}.converted.{man_fmt_conv}"
+
+    test_initialise = manifest_wrapper (
+            data = str(res0)
+            , schema = str(sch0)
+            , data_model_uri = ont
+            , manifest = output_manifest
+            , manifest_name = output_name
+            , validate = val0
+            , prefixes = prefixes
+            , serialise_mode = man_fmt0
+    )
+    print (f"Manifest conversion case {n}: Initialise result: {test_initialise}")
+    test_append = manifest_wrapper (
+            data = str(res1)
+            , schema = str(sch1)
+            , data_model_uri = ont
+            , manifest = output_manifest
+            , manifest_name = output_name
+            , validate = val1
+            , prefixes = prefixes
+            , serialise_mode = man_fmt1
+    )
+    print (f"Manifest conversion case {n}: Append result: {test_append}")
+    (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
+            manifest_path   = output_manifest
+            , manifest_format = man_fmt_out
+            , data_model_uri  = ont
+            , prefixes        = prefixes
+            , gcp_source      = None
+            , dry_run         = dry_run_out
+            , force           = force_out
+            , fake_cwd        = "/tmp/examples/sentinel_cages/"
+    )
+    print (f"Manifest conversion case {n}: Coalesce result: {test_signal}")
+    
+    
+    if test_obj is None:
+        print (f"Manifest conversion case {n}: returned object None, remaining fields not filled out")
+        test_results = [exp0 == test_initialise, exp1 == test_append
+                      , not test_signal
+                      , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]
+        try:
+            print (test_results)
+            os.remove (output_manifest)
+            rmtree ("/tmp/examples/sentinel_cages")
+            self.assertTrue (all (test_results))
+        except FileNotFoundError as e:
+            print ("Could not remove files, try removing /tmp/examples and run tests again")
+            self.assertFalse (bool(e))
+    
+    else:
+        print (f"Manifest conversion case {n}, I found: {test_path_yaml}, {test_path_ttl}, {test_uri}")
+        [table0] = list (filter (lambda k : k.schema_path_yaml == sch0.name, test_obj.tables))
+        [table1] = list (filter (lambda k : k.schema_path_yaml == sch1.name, test_obj.tables))
+
+        print (f"Manifest conversion case {n}, I found tables:")
+        print (table0)
+        print (table1)
+        
+        # Fairly annoying:
+        if (man_fmt_conv == "ttl"):
+            test_fmt = test_path_yaml == PurePath (man_in) and test_path_ttl == PurePath (man_conv)
+        elif (man_fmt_conv == "yaml"):
+            test_fmt = test_path_yaml == PurePath (man_conv) and test_path_ttl == PurePath (man_in)
+        else:
+            test_fmt = False
+
+        print (f"SCH0: {sch0.name}, SCH1: {sch1.name}, SCH0CONV: {sch0conv.name}, SCH1CONV: {sch1conv.name}")
+        test_tables = all([
+                table0.schema_path_yaml == sch0.name
+              , table1.schema_path_yaml == sch1.name
+              , table0.schema_path_ttl  == sch0conv.name
+              , table1.schema_path_ttl  == sch1conv.name
+            ])
+        
+        test_results = [exp0 == test_initialise
+                      , exp1 == test_append
+                      , exp_out  == test_signal
+                      , test_uri == output_uri
+                      , test_fmt, test_tables ]
+        
+        try:
+            print (test_results)
+            if (exp0 == test_initialise):
+                os.remove (output_manifest)
+            if (exp_out == test_signal):
+                os.remove (converted_manifest)
+            rmtree ("/tmp/examples/sentinel_cages")   
+            self.assertTrue (all (test_results))
+        except FileNotFoundError as e:
+            print ("Could not remove files, try removing /tmp/examples and run tests again")
+            self.assertFalse (bool(e))    
+
 class TestConvertManifest (unittest.TestCase):
     '''
     Case 1: Build up known-good YAML data with cmd_dat      -> (True, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_name)
     Case 2: Build up known-good TTL data with cmd_dat       -> as in (1)
-    Case 2: Manifest path does not exist                    -> (False, None, ...)
-    Case 3: Data model URI is invalid                       -> (False, None, ...)
-    Case 4: Try loading YAML with "ttl" `manifest_format'   -> (False, None, ...)
-    Case 5: Try loading TTL with "yaml" `manifest_format'   -> (False, None, ...)
-    Case 6: Some invalid `manifest_format' e.g. "jsonld"    -> (False, None, ...)
-    Case 7: Conversion to TTL not feasible (e.g. paths)     -> as in (1), (2), but signal is False
-    Case 8: Conversion to TTL not feasible, but force:=True -> as in (1), (2)
+    Case 3: Manifest path does not exist                    -> (False, None, ...)
+    Case 4: Data model URI is invalid                       -> (False, None, ...)
+    Case 5: Try loading YAML with "ttl" `manifest_format'   -> (False, None, ...)
+    Case 6: Try loading TTL with "yaml" `manifest_format'   -> (False, None, ...)
+    Case 7: Some invalid `manifest_format' e.g. "jsonld"    -> (False, None, ...)
+    Case 8: Conversion to TTL not feasible (e.g. paths)     -> as in (1), (2), but signal is False
+    Case 9: Conversion to TTL not feasible, but force:=True -> as in (1), (2)
     
-    Case 9: Build manifest with schema validation disabled (bad schema) -> as in (1, 2), but signal is False
-    Case 10: As in (9), but disable validation                          -> as in (1), (2)    
+    Case 10: Build manifest with validation disabled, load with validation -> as in (1, 2), but signal is False
+    Case 11: As in (9), but disable validation when loading                -> as in (1), (2)    
     '''
 
     def test_manifest0 (self):
-        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
-
-        output_name        = "LeafManifest0"
-        output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest0"
-        output_manifest    = "/tmp/manifest0.yaml"
-        converted_manifest = "/tmp/manifest0.converted.ttl"
-        
-        test_initialise = manifest_wrapper (
-            data           = str(data0)
-          , schema         = str(schema_yaml0)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "yaml"
+        gen_test_manifest (
+            self, message = "Build up known-good YAML data", n=0
+          , man_in   = "/tmp/manifest0.yaml"
+          , man_conv = "/tmp/manifest0.converted.ttl"
+          , ont = data_model_uri
+          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
+          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
+          , man_fmt0 = "yaml", man_fmt1 = "yaml", man_fmt_out = "yaml", force_out = False, man_fmt_conv = "ttl"
+          , val0 = True, val1 = True, dry_run_out = False
+          , exp0 = True, exp1 = True, exp_out = True
         )
-        test_append = manifest_wrapper (
-            data           = str(data1)
-          , schema         = str(schema_yaml1)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "yaml"
-        )
-        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
-            manifest_path   = output_manifest
-          , manifest_format = "yaml"
-          , data_model_uri  = data_model_uri
-          , prefixes        = prefixes
-          , gcp_source      = None
-          , dry_run         = False
-          , force           = False
-          , fake_cwd        = "/tmp/examples/sentinel_cages/"
-        )
-        try:
-            os.remove (output_manifest)
-            os.remove (converted_manifest)
-            rmtree ("/tmp/examples/sentinel_cages")
-            self.assertTrue (all ([test_initialise, test_append, test_signal
-                                 , test_path_yaml == PurePath (output_manifest)
-                                 , test_path_ttl  == PurePath (converted_manifest)
-                                 , test_uri       == output_uri
-                                 , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
-                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.converted.ttl"
-                                 , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
-                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.converted.ttl"]))
-        except FileNotFoundError as e:
-            self.assertFalse (bool(e))
 
     def test_manifest1 (self):
-        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
-
-        output_name        = "LeafManifest1"
-        output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest1"
-        output_manifest    = "/tmp/manifest1.ttl"
-        converted_manifest = "/tmp/manifest1.converted.yaml"
-        
-        test_initialise = manifest_wrapper (
-            data           = str(data0)
-          , schema         = str(schema_yaml0)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "ttl"
+        gen_test_manifest (
+            self, message = "Build up known-good TTL data", n=1
+          , man_in   = "/tmp/manifest1.ttl"
+          , man_conv = "/tmp/manifest1.converted.yaml"
+          , ont = data_model_uri
+          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
+          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
+          , man_fmt0 = "ttl", man_fmt1 = "ttl", man_fmt_out = "ttl", force_out = False, man_fmt_conv = "yaml"
+          , val0 = True, val1 = True, dry_run_out = False
+          , exp0 = True, exp1 = True, exp_out = True
         )
-        test_append = manifest_wrapper (
-            data           = str(data1)
-          , schema         = str(schema_yaml1)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "ttl"
-        )
-        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
-            manifest_path   = output_manifest
-          , manifest_format = "ttl"
-          , data_model_uri  = data_model_uri
-          , prefixes        = prefixes
-          , gcp_source      = None
-          , dry_run         = False
-          , force           = False
-          , fake_cwd        = "/tmp/examples/sentinel_cages/"
-        )
-        try:
-            os.remove (output_manifest)
-            os.remove (converted_manifest)
-            rmtree ("/tmp/examples/sentinel_cages")
-            self.assertTrue (all ([test_initialise, test_append, test_signal
-                                 , test_path_yaml == PurePath (converted_manifest) ##
-                                 , test_path_ttl  == PurePath (output_manifest)    ##
-                                 , test_uri       == output_uri
-                                 , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
-                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.converted.ttl"
-                                 , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
-                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.converted.ttl"]))
-        except FileNotFoundError as e:
-            self.assertFalse (bool(e))
 
     def test_manifest2 (self):
+        print ("Manifest conversion case 3: Non-existent manifest file path")
         (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
             manifest_path   = "/tmp/manifest2.ttl"
           , manifest_format = "ttl"
@@ -309,6 +354,7 @@ class TestConvertManifest (unittest.TestCase):
         self.assertTrue (all ([not test_signal, test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
 
     def test_manifest3 (self):
+        print ("Manifest conversion case 4: Non-extant data model URI")
         res = "/tmp/manifest3.yaml"
         Path (res).touch ()
         (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
@@ -321,257 +367,80 @@ class TestConvertManifest (unittest.TestCase):
           , force           = False
           , fake_cwd        = "/tmp/examples/sentinel_cages/"
         )
+        #print ((test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri))
         try:
             os.remove (res)
             self.assertTrue (all ([not test_signal, test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
         except FileNotFoundError as e:
+            print ("Could not remove files, try removing /tmp/examples and run tests again")
             self.assertFalse (bool(e))
-        
-    def test_manifest4 (self):
-        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
 
-        output_name        = "LeafManifest4"
-        output_manifest    = "/tmp/manifest4.yaml"
-        
-        test_initialise = manifest_wrapper (
-            data           = str(data0)
-          , schema         = str(schema_yaml0)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "yaml"
+    def test_manifest4 (self):
+        gen_test_manifest (
+            self, message = "Try loading YAML manifest using TTL loader", n=4
+          , man_in   = "/tmp/manifest4.yaml"
+          , man_conv = "/tmp/manifest4.converted.ttl"
+          , ont = data_model_uri
+          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
+          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
+          , man_fmt0 = "yaml", man_fmt1 = "yaml", man_fmt_out = "ttl", force_out = False, man_fmt_conv = "yaml"
+          , val0 = True, val1 = True, dry_run_out = False
+          , exp0 = True, exp1 = True, exp_out = False
         )
-        test_append = manifest_wrapper (
-            data           = str(data1)
-          , schema         = str(schema_yaml1)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "yaml"
-        )
-        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
-            manifest_path   = output_manifest
-          , manifest_format = "ttl"
-          , data_model_uri  = data_model_uri
-          , prefixes        = prefixes
-          , gcp_source      = None
-          , dry_run         = False
-          , force           = False
-          , fake_cwd        = "/tmp/examples/sentinel_cages/"
-        )
-        try:
-            os.remove (output_manifest)
-            rmtree ("/tmp/examples/sentinel_cages")
-            self.assertTrue (all ([test_initialise, test_append
-                                 , not test_signal
-                                 , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
-        except FileNotFoundError as e:
-            self.assertFalse (bool(e))
 
     def test_manifest5 (self):
-        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
-
-        output_name        = "LeafManifest5"
-        output_manifest    = "/tmp/manifest5.ttl"
-        
-        test_initialise = manifest_wrapper (
-            data           = str(data0)
-          , schema         = str(schema_yaml0)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "ttl"
+        gen_test_manifest (
+            self, message = "Try loading TTL manifest using YAML loader", n=5
+          , man_in   = "/tmp/manifest5.ttl"
+          , man_conv = "/tmp/manifest5.converted.yaml"
+          , ont = data_model_uri
+          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
+          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
+          , man_fmt0 = "ttl", man_fmt1 = "ttl", man_fmt_out = "yaml", force_out = False, man_fmt_conv = "ttl"
+          , val0 = True, val1 = True, dry_run_out = False
+          , exp0 = True, exp1 = True, exp_out = False
         )
-        test_append = manifest_wrapper (
-            data           = str(data1)
-          , schema         = str(schema_yaml1)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "ttl"
-        )
-        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
-            manifest_path   = output_manifest
-          , manifest_format = "yaml"
-          , data_model_uri  = data_model_uri
-          , prefixes        = prefixes
-          , gcp_source      = None
-          , dry_run         = False
-          , force           = False
-          , fake_cwd        = "/tmp/examples/sentinel_cages/"
-        )
-        try:
-            os.remove (output_manifest)
-            rmtree ("/tmp/examples/sentinel_cages")
-            self.assertTrue (all ([test_initialise, test_append
-                                 , not test_signal
-                                 , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
-        except FileNotFoundError as e:
-            self.assertFalse (bool(e))
 
     def test_manifest6 (self):
-        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
-
-        output_name        = "LeafManifest6"
-        output_manifest    = "/tmp/manifest6.ttl"
-        
-        test_initialise = manifest_wrapper (
-            data           = str(data0)
-          , schema         = str(schema_yaml0)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "ttl"
+        gen_test_manifest (
+            self, message = "Try loading with invalid loader format ('jsonld')", n=6
+          , man_in   = "/tmp/manifest6.ttl"
+          , man_conv = "/tmp/manifest6.converted.yaml"
+          , ont = data_model_uri
+          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
+          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
+          , man_fmt0 = "ttl", man_fmt1 = "ttl", man_fmt_out = "jsonld", force_out = False, man_fmt_conv = "ttl"
+          , val0 = True, val1 = True, dry_run_out = False
+          , exp0 = True, exp1 = True, exp_out = False
         )
-        test_append = manifest_wrapper (
-            data           = str(data1)
-          , schema         = str(schema_yaml1)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "ttl"
-        )
-        
-        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
-            manifest_path   = output_manifest
-          , manifest_format = "jsonld"
-          , data_model_uri  = data_model_uri
-          , prefixes        = prefixes
-          , gcp_source      = None
-          , dry_run         = False
-          , force           = False
-          , fake_cwd        = "/tmp/examples/sentinel_cages/"
-        )
-        try:
-            os.remove (output_manifest)
-            rmtree ("/tmp/examples/sentinel_cages")
-            self.assertTrue (all ([test_initialise, test_append
-                                 , not test_signal
-                                 , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]))
-        except FileNotFoundError as e:
-            self.assertFalse (bool(e))
 
     def test_manifest7 (self):
-        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
-
-        output_name        = "LeafManifest7"
-        output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest7"
-        output_manifest    = "/tmp/manifest7.ttl"
-        converted_manifest = "/tmp/manifest7.converted.yaml"
-        
-        test_initialise = manifest_wrapper (
-            data           = str(data0)
-          , schema         = str(schema_yaml0)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "ttl"
+        extant = "/tmp/manifest7.converted.ttl"
+        Path (extant).touch ()
+        gen_test_manifest (
+            self, message = "Converted manifest target file already exists", n=7
+          , man_in   = "/tmp/manifest7.yaml"
+          , man_conv = extant
+          , ont = data_model_uri
+          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
+          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
+          , man_fmt0 = "yaml", man_fmt1 = "yaml", man_fmt_out = "yaml", force_out = False, man_fmt_conv = "ttl"
+          , val0 = True, val1 = True, dry_run_out = False
+          , exp0 = True, exp1 = True, exp_out = False
         )
-        test_append = manifest_wrapper (
-            data           = str(data1)
-          , schema         = str(schema_yaml1)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "ttl"
-        )
-
-        Path (converted_manifest).touch ()
-        
-        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
-            manifest_path   = output_manifest
-          , manifest_format = "ttl"
-          , data_model_uri  = data_model_uri
-          , prefixes        = prefixes
-          , gcp_source      = None
-          , dry_run         = False
-          , force           = False
-          , fake_cwd        = "/tmp/examples/sentinel_cages/"
-        )
-        try:
-            os.remove (output_manifest)
-            os.remove (converted_manifest)
-            rmtree ("/tmp/examples/sentinel_cages")
-            self.assertTrue (all ([test_initialise, test_append
-                                 , not test_signal
-                                 , test_path_yaml == PurePath (converted_manifest)
-                                 , test_path_ttl  == PurePath (output_manifest)
-                                 , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
-                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.converted.ttl"
-                                 , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
-                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.converted.ttl"
-                                 , test_uri       == output_uri]))
-        except FileNotFoundError as e:
-            self.assertFalse (bool(e))
 
     def test_manifest8 (self):
-        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
-
-        output_name        = "LeafManifest8"
-        output_uri         = "https://marine.gov.scot/metadata/saved/rap/LeafManifest8"
-        output_manifest    = "/tmp/manifest8.ttl"
-        converted_manifest = "/tmp/manifest8.converted.yaml"
+        extant = "/tmp/manifest8.converted.ttl"
+        Path (extant).touch ()
+        gen_test_manifest (
+            self, message = "Converted manifest target file already exists, forcibly overwrite", n=8
+          , man_in   = "/tmp/manifest8.yaml"
+          , man_conv = extant
+          , ont = data_model_uri
+          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
+          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
+          , man_fmt0 = "yaml", man_fmt1 = "yaml", man_fmt_out = "yaml", force_out = True, man_fmt_conv = "ttl"
+          , val0 = True, val1 = True, dry_run_out = False
+          , exp0 = True, exp1 = True, exp_out = True
+        )
         
-        test_initialise = manifest_wrapper (
-            data           = str(data0)
-          , schema         = str(schema_yaml0)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "ttl"
-        )
-        test_append = manifest_wrapper (
-            data           = str(data1)
-          , schema         = str(schema_yaml1)
-          , data_model_uri = data_model_uri
-          , manifest       = output_manifest
-          , manifest_name  = output_name
-          , validate       = True
-          , prefixes       = prefixes
-          , serialise_mode = "ttl"
-        )
-
-        Path (converted_manifest).touch ()
-        
-        (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
-            manifest_path   = output_manifest
-          , manifest_format = "ttl"
-          , data_model_uri  = data_model_uri
-          , prefixes        = prefixes
-          , gcp_source      = None
-          , dry_run         = False
-          , force           = True
-          , fake_cwd        = "/tmp/examples/sentinel_cages/"
-        )
-        try:
-            os.remove (output_manifest)
-            os.remove (converted_manifest)
-            rmtree ("/tmp/examples/sentinel_cages")
-            self.assertTrue (all ([test_initialise, test_append, test_signal
-                                 , test_path_yaml == PurePath (converted_manifest) ##
-                                 , test_path_ttl  == PurePath (output_manifest)    ##
-                                 , test_obj.tables[0].schema_path_yaml == "sentinel_cages_sampling.yaml"
-                                 , test_obj.tables[0].schema_path_ttl  == "sentinel_cages_sampling.converted.ttl"
-                                 , test_obj.tables[1].schema_path_yaml == "sentinel_cages_site.yaml"
-                                 , test_obj.tables[1].schema_path_ttl  == "sentinel_cages_site.converted.ttl"
-                                 , test_uri       == output_uri]))
-        except FileNotFoundError as e:
-            self.assertFalse (bool(e))
