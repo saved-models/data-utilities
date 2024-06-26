@@ -6,6 +6,7 @@ from google.cloud      import client as gc
 from hashlib           import sha384
 import argparse
 import codecs
+import copy
 import json
 import logging
 from os.path import isfile, basename, dirname
@@ -32,7 +33,7 @@ from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
 from fisdat            import __version__, __commit__
 from fisdat.ns         import CSVW
 from fisdat.utils      import error, fst, extension_helper, prefix_helper, job_table
-from fisdat.data_model import ManifestDesc
+from fisdat.data_model import TableDesc, ManifestDesc
 
 ## data read/write buffer size, 1MB
 BUFSIZ=1048576
@@ -179,7 +180,43 @@ def coalesce_schema (schema_path_yaml : str
     else:
         print (f"Conversion of schema from YAML {schema_path_yaml} to TTL {target_path_ttl} is not feasible!")
         return (False, target_path_ttl)
+    
+def coalesce_table (tab      : TableDesc
+                  , fake_cwd : str
+                  , dry_run  : bool
+                  , force    : bool
+                  , convert  : bool
+                  , stem     : str) -> (bool, TableDesc):
+    table_uri      = tab.resource_path
+    fake_table_uri = f"{fake_cwd}{table_uri}"
+    extant_uri     = isfile (fake_table_uri)
 
+    if (not isfile (fake_table_uri)):
+        print (f"Error: target file {fake_table_uri} does not exist!")
+        return (False, tab)
+    else:
+        with open (fake_table_uri, "rb") as fp:
+            data = fp.read ()
+            hash = sha384  (data)
+                
+            if hash.hexdigest() != tab.resource_hash:
+                print (f"{fake_table_uri} has changed, please revalidate with `fisdat'")
+                return (False, tab)
+        if convert:
+            fake_path_yaml             = f"{fake_cwd}{tab.schema_path_yaml}"
+            (schema_success, path_ttl) = coalesce_schema (schema_path_yaml = fake_path_yaml
+                                                        , dry_run          = dry_run
+                                                        , force            = force
+                                                        , conversion_stem  = stem)
+            if (schema_success):
+                tab.schema_path_ttl = path_ttl.name
+            return (schema_success, tab)
+        else:
+            # Should return True here as manifest conversion is feasible
+            # but we've just not subbed in the TTL conversion filename
+            return (True, tab)
+
+    
 def coalesce_manifest (manifest_path   : str
                      , manifest_format : str
                      , data_model_uri  : str
@@ -187,6 +224,7 @@ def coalesce_manifest (manifest_path   : str
                      , gcp_source      : str
                      , dry_run         : bool
                      , force           : bool
+                     , convert_schema  : bool = True
                      , conversion_stem : str  = "converted"
                      , fake_cwd        : str  = ""
     ) -> (bool, Optional[ManifestDesc], Optional[str], Optional[str], Optional[str], Optional[str]):
@@ -236,7 +274,7 @@ def coalesce_manifest (manifest_path   : str
             (manifest_feasible, manifest_path_yaml) = convert_feasibility (
                 input_path      = manifest_path_ttl
               , target_ext      = f"{conversion_stem}.yaml"
-              , force           = force # More likely mistaken, don't forcibly overwrite!
+              , force           = force
             )
         except rdflib.plugins.parsers.notation3.BadSyntax:
             print (f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--serialisation' option)")
@@ -273,41 +311,26 @@ def coalesce_manifest (manifest_path   : str
 
     '''
     4. Validate/convert tables in manifest file
+
+    This bit is really annoying in the sense that we want to only update
+    the tables if all the schema converted successfully. Running the map
+    over the list is effectual so need to use the .copy() method to
+    create a new, isolated list.
     '''
-    if (dry_run):   
-        for tab in manifest_obj.tables:
-            fake_path_yaml             = f"{fake_cwd}{tab.schema_path_yaml}" 
-            (schema_success, path_ttl) = coalesce_schema (schema_path_yaml = fake_path_yaml
-                                                        , dry_run          = dry_run
-                                                        , force            = False
-                                                        , conversion_stem  = conversion_stem)
-            tab.schema_path_ttl        = path_ttl.name
-    else:
-         for tab in manifest_obj.tables:
-            fake_path_yaml             = f"{fake_cwd}{tab.schema_path_yaml}"
-            (schema_success, path_ttl) = coalesce_schema (schema_path_yaml = fake_path_yaml
-                                                        , dry_run          = False
-                                                        , force            = force
-                                                        , conversion_stem  = conversion_stem)
-            if (schema_success):
-                tab.schema_path_ttl = path_ttl.name
+    if (manifest_feasible):
+        print (f"Original manifest tables: {manifest_obj.tables}")
+        copied_obj = copy.deepcopy (manifest_obj)
+        rough_tables = map (lambda t : coalesce_table(t, fake_cwd, dry_run, force, convert_schema, conversion_stem), copied_obj.tables)
+        tables_signals, tables_results = zip(*rough_tables)
 
-            # Now check hashes of resources
-            table_uri      = tab.resource_path
-            fake_table_uri = f"{fake_cwd}{table_uri}"
-            print (f"Checking {fake_table_uri} ...")
-
-            prereq_check = isfile (fake_table_uri)
-        
-            if (not prereq_check):
-                raise ValueError (f"Error: target file {fake_table_uri} does not exist")
-            else:
-                with open (fake_table_uri, "rb") as fp:
-                    data = fp.read ()
-                    hash = sha384  (data)
-                
-                    if hash.hexdigest() != tab.resource_hash:
-                        raise ValueError (f"{fake_table_uri} has changed, please revalidate with `fisdat'")  
+        if (all (tables_signals)):
+            print ("Successfully converted all schemata from YAML to TTL")
+            manifest_obj.tables = list (tables_results)
+        else:
+            print ("Conversion of some schemata from YAML to TTL failed, or hashes were invalid")
+            print (f"Revised manifest tables: {tables_results}")
+            print (f"Potentially updated manifest tables: {tables_results}")
+            manifest_feasible = False
     '''
     Convert manifest from YAML to TTL, or vice versa
     '''
@@ -378,6 +401,9 @@ def cli () -> None:
     parser.add_argument ("--base-prefix"
                        , help     = "RDF `@base' prefix from which manifest, results, data and descriptive statistics may be served."
                        , default  = "https://marine.gov.scot/metadata/saved/rap/")
+    parser.add_argument ("--no-convert-schema", "--no-validate-schema", "--no-validate"
+                       , help     = "Disable schema validation/conversion when converting manifest"
+                       , action   = "store_true")
     parser.add_argument ("-n", "--no-upload", "--dry-run"
                        , help     = "Don't upload files"
                        , action   = "store_true")
@@ -418,14 +444,27 @@ def cli () -> None:
                , "rap"  : "https://marine.gov.scot/metadata/saved/rap/"
                , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
+    # Case 1: no_upload is set -> set both
+    # Case 2: no_upload is not set, set 
+    #if args.no_upload:
+    #    print ("No upload (`--no-upload') option is set, neither validate/convert schema nor upload files")
+    #    no_validate = True
+    #    dry_run     = True
+    #else:
+    #    no_validate = args.no_validate
+    #    dry_run     = args.no_upload
+    no_validate = args.no_validate
+    no_upload   = args.no_upload
+
     (test_signal, manifest_obj, manifest_yaml, manifest_ttl, manifest_uri) = coalesce_manifest (
-            manifest_path      = args.manifest
-          , manifest_format    = args.manifest_format
-          , data_model_uri     = args.data_model_uri
-          , prefixes           = prefixes
-          , gcp_source         = data_source_email
-          , dry_run            = args.no_upload
-          , force              = args.force
+            manifest_path   = args.manifest
+          , manifest_format = args.manifest_format
+          , data_model_uri  = args.data_model_uri
+          , prefixes        = prefixes
+          , gcp_source      = data_source_email
+          , dry_run         = dry_run
+          , convert_schema  = args.no_convert_schema
+          , force           = args.force
         )
 
     index = prep_index (manifest_path_yaml = manifest_yaml
