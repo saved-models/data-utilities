@@ -85,18 +85,28 @@ def prep_index (manifest_path_yaml : str
               , manifest_uri       : str
               , base_prefix        : str
               , index_name         : str
+              , dry_run            : bool
     ) -> str:
     '''
     Echo the manifest file name to .index or other file.
     This avoids hard-coding the manifest title.
     '''
     logging.debug (f"Called `prep_index (manifest_path_yaml = {manifest_path_yaml}, manifest_path_ttl = {manifest_path_ttl}, manifest_uri = {manifest_uri}, index_name = {index_name})'")
+    
+    files = [ manifest_path_yaml, manifest_path_ttl, base_prefix, manifest_uri ]
 
-    index_contents = f"{manifest_path_yaml}\n{manifest_path_ttl}\n{base_prefix}\n{manifest_uri}"
-
-    output_index = codecs.open (index_name, "w", "utf-8")
-    output_index.write (index_contents)
-    output_index.close ()
+    if (dry_run):
+        inner_padding = max (map (lambda k : len(str(k)), files))
+        padding_line = '-' * (inner_padding + 4)
+        padded_lines = map (lambda k : "| " + str(k) + (' ' * (inner_padding - len(str(k)))) + " |", files)
+        all_lines    = '\n'.join ([padding_line] + list(padded_lines) + [padding_line])
+        print ("Would have written the following index file contents:")
+        print (all_lines)
+    else:
+        index_contents = f"{manifest_path_yaml}\n{manifest_path_ttl}\n{base_prefix}\n{manifest_uri}"
+        output_index = codecs.open (index_name, "w", "utf-8")
+        output_index.write (index_contents)
+        output_index.close ()
 
     return (index_name)
 
@@ -132,10 +142,10 @@ def convert_feasibility (input_path  : str
         print (f"Target file {output_path_pure} doesn't exist, so overwrite")
         stage_write = (True, output_path_pure)
     elif (isfile (output_path_pure) and force):
-        print (f"Target file {output_path_pure} exists, and force-overwrite is set, so overwrite")
+        print (f"Target file {output_path_pure} exists, and force-overwrite (`--force' option) is set, so overwrite")
         stage_write = (True, output_path_pure)
     else: #elif (isfile (target_file) and not force):
-        print (f"Target file {output_path_pure} exists, but force-overwrite is not set, so don't overwrite!")
+        print (f"Target file {output_path_pure} exists, but force-overwrite (`--force' option) is not set, so don't overwrite!")
         stage_write = (False, output_path_pure)
 
     return (stage_write)
@@ -277,7 +287,7 @@ def coalesce_manifest (manifest_path   : str
               , force           = force
             )
         except rdflib.plugins.parsers.notation3.BadSyntax:
-            print (f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--serialisation' option)")
+            print (f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--manifest-format' option)")
             return (False, None, None, None, None)
 
     elif (manifest_format == "yaml"):
@@ -295,7 +305,7 @@ def coalesce_manifest (manifest_path   : str
               , force           = force
             )
         except yaml.scanner.ScannerError:
-            print (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--serialisation' option)")
+            print (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--manifest-format' option)")
             return (False, None, None, None, None)
     else:
         print (f"Unrecognised serialisation mode {manifest_format}, cannot load extant object")
@@ -318,7 +328,7 @@ def coalesce_manifest (manifest_path   : str
     create a new, isolated list.
     '''
     if (manifest_feasible):
-        print (f"Original manifest tables: {manifest_obj.tables}")
+        logging.debug (f"Original manifest tables: {manifest_obj.tables}")
         copied_obj = copy.deepcopy (manifest_obj)
         rough_tables = map (lambda t : coalesce_table(t, fake_cwd, dry_run, force, convert_schema, conversion_stem), copied_obj.tables)
         tables_signals, tables_results = zip(*rough_tables)
@@ -327,9 +337,7 @@ def coalesce_manifest (manifest_path   : str
             print ("Successfully converted all schemata from YAML to TTL")
             manifest_obj.tables = list (tables_results)
         else:
-            print ("Conversion of some schemata from YAML to TTL failed, or hashes were invalid")
-            print (f"Revised manifest tables: {tables_results}")
-            print (f"Potentially updated manifest tables: {tables_results}")
+            print ("Conversion of some schemata from YAML to TTL failed, or hashes were invalid, see previous messages")
             manifest_feasible = False
     '''
     Convert manifest from YAML to TTL, or vice versa
@@ -393,7 +401,7 @@ def cli () -> None:
     parser.add_argument ("--data-model-uri"
                        , help     = "Data model YAML specification URI"
                        , default  = "https://marine.gov.scot/metadata/saved/schema/meta.yaml")
-    parser.add_argument ("--manifest-format", "--input-format", "--serialisation"
+    parser.add_argument ("-f", "--manifest-format", "--serialisation"
                        , help     = "Input manifest format"
                        , type     = str
                        , choices  = ["yaml", "ttl"]
@@ -407,7 +415,7 @@ def cli () -> None:
     parser.add_argument ("-n", "--no-upload", "--dry-run"
                        , help     = "Don't upload files"
                        , action   = "store_true")
-    parser.add_argument ("-f", "--force"
+    parser.add_argument ("-F", "--force"
                        , help = "Forcibly overwrite files in case of conflicts"
                        , action = "store_true"
                        , default = False)
@@ -453,8 +461,8 @@ def cli () -> None:
     #else:
     #    no_validate = args.no_validate
     #    dry_run     = args.no_upload
-    no_validate = args.no_validate
-    no_upload   = args.no_upload
+    convert_schema = not args.no_convert_schema
+    dry_run        = args.no_upload
 
     (test_signal, manifest_obj, manifest_yaml, manifest_ttl, manifest_uri) = coalesce_manifest (
             manifest_path   = args.manifest
@@ -463,32 +471,32 @@ def cli () -> None:
           , prefixes        = prefixes
           , gcp_source      = data_source_email
           , dry_run         = dry_run
-          , convert_schema  = args.no_convert_schema
+          , convert_schema  = convert_schema
           , force           = args.force
         )
-
-    index = prep_index (manifest_path_yaml = manifest_yaml
-                      , manifest_path_ttl  = manifest_ttl
-                      , manifest_uri       = manifest_uri
-                      , base_prefix        = args.base_prefix
-                      , index_name         = args.index)
     
     if (test_signal):
+        index = prep_index (manifest_path_yaml = manifest_yaml
+                          , manifest_path_ttl  = manifest_ttl
+                          , manifest_uri       = manifest_uri
+                          , base_prefix        = args.base_prefix
+                          , index_name         = args.index
+                          , dry_run            = dry_run)
+        
         resources     = [table.resource_path    for table in manifest_obj.tables]
         schemata_ttl  = [table.schema_path_ttl  for table in manifest_obj.tables]
         schemata_yaml = [table.schema_path_yaml for table in manifest_obj.tables]
         time_stamp    = datetime.today ().strftime ('%Y%m%d')
         short_name    = data_source_email.split ('@') [0]
 
-        staging_files = [manifest_yaml
-                       , manifest_ttl
+        staging_files = [str (manifest_yaml)
+                       , str (manifest_ttl)
                        , index] + resources + schemata_yaml + schemata_ttl
         
-        url = upload_files (args, staging_files, short_name, time_stamp, no_upload)
+        url = upload_files (args, staging_files, short_name, time_stamp, dry_run)
 
-        if (not no_upload):
-            print(f"Successfully uploaded your data/job set/bundle to {url}")
-        else:
+        if (dry_run):
             print(f"Would have uploaded your data/job set/bundle to {url}")
-    else:
-        print ("Manifest conversion was not practical, regenerate manifest!")
+        else:
+            print(f"Successfully uploaded your data/job set/bundle to {url}")
+

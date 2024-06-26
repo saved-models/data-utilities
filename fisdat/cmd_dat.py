@@ -163,7 +163,7 @@ def append_job_manifest (data           : str
                                              , target_class = ManifestDesc
                                              , schemaview   = py_data_model_view)
             except rdflib.plugins.parsers.notation3.BadSyntax:
-                print (f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--serialisation' option)")
+                print (f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--manifest-format' option)")
                 return (False)
             
         elif (serialise_mode == "yaml"):
@@ -172,7 +172,7 @@ def append_job_manifest (data           : str
                 extant_manifest = loader.load (source       = manifest
                                              , target_class = ManifestDesc)
             except yaml.scanner.ScannerError: 
-                print (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--serialisation' option)")
+                print (f"Cannot load file {manifest_path} with the YAML loader. Is your manifest an RDF/TTL manifest? (\"ttl\" `--manifest-format option)")
                 return (False)
         else:
             print ("Unrecognised serialisation mode for `append_job_manifest()', cannot load extant object")
@@ -301,7 +301,7 @@ def cli () -> None:
     parser.add_argument ("--manifest-name"
                        , help     = "Name of the manifest root object"
                        , default  = "RootManifest")
-    parser.add_argument ("--serialisation"
+    parser.add_argument ("-f", "--manifest-format", "--serialisation"
                        , help     = "Serialise manifest as YAML or serialise manifest as RDF/TTL"
                        , type     = str
                        , choices  = ["yaml", "ttl"]
@@ -328,7 +328,7 @@ def cli () -> None:
                        , format = "%(levelname)s [%(asctime)s] [`%(filename)s\' `%(funcName)s\' (l.%(lineno)d)] ``%(message)s\'\'")
 
     prefixes = { "_base": args.base_prefix
-               , "rap":   "https://marine.gov.scot/metadata/saved/rap/"
+               , "rap"  : "https://marine.gov.scot/metadata/saved/rap/"
                , "saved": "https://marine.gov.scot/metadata/saved/schema/" }
 
     manifest_wrapper (data           = args.csvfile
@@ -338,5 +338,5 @@ def cli () -> None:
                     , manifest_name  = args.manifest_name
                     , validate       = not args.no_validate
                     , prefixes       = prefixes
-                    , serialise_mode = args.serialisation)
+                    , serialise_mode = args.manifest_format)
 
