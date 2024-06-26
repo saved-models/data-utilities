@@ -131,8 +131,8 @@ class TestConvertSchema (unittest.TestCase):
           , force            = False
         )
         try:
-            os.remove (res)
             self.assertTrue (test_signal and target_path == PurePath (res))
+            os.remove (res)
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -155,8 +155,8 @@ class TestConvertSchema (unittest.TestCase):
           , force            = False
         )
         try:
-            os.remove (res_ttl)
             self.assertTrue (all ([test_signal_ttl, target_path_ttl == PurePath(res_ttl), not test_signal_yaml]))
+            os.remove (res_ttl)
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -171,11 +171,15 @@ class TestConvertSchema (unittest.TestCase):
           , dry_run          = True
           , force            = False
         )
+        print (test_signal, target_path)
+        print (type (target_path))
+        print (target_path == PurePath (res))
+        
         try:
-            os.remove (res)
             self.assertTrue (test_signal and target_path == PurePath (res))
+            os.remove (res)
         except FileNotFoundError as e:
-            self.assertFalse (bool(e))
+            self.assertTrue (bool(e))
 
 
 def gen_test_manifest (self, message, n
@@ -250,9 +254,9 @@ def gen_test_manifest (self, message, n
                       , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]
         try:
             print (test_results)
+            self.assertTrue (all (test_results))
             os.remove (output_manifest)
             rmtree ("/tmp/examples/sentinel_cages")
-            self.assertTrue (all (test_results))
         except FileNotFoundError as e:
             print ("Could not remove files, try removing /tmp/examples and run tests again")
             self.assertFalse (bool(e))
@@ -299,12 +303,14 @@ def gen_test_manifest (self, message, n
         
         try:
             print (test_results)
+            self.assertTrue (all (test_results))
             if (test_initialise):
                 os.remove (output_manifest)
             if (test_signal and not dry_run_out):
                 os.remove (converted_manifest)
-            rmtree ("/tmp/examples/sentinel_cages")   
-            self.assertTrue (all (test_results))
+            if (fs_op):
+                rmtree ("/tmp/examples/sentinel_cages")
+            
         except FileNotFoundError as e:
             print ("Could not remove files, try removing /tmp/examples and run tests again")
             self.assertFalse (bool(e))    
@@ -440,6 +446,8 @@ class TestConvertManifest (unittest.TestCase):
             , validate0 = True, validate1 = True, validate_out = True, dry_run_out = False
             , expected0 = True, expected1 = True, expected_out = False
         )
+        rmtree ("/tmp/examples/sentinel_cages")
+        
 
     def test_manifest09 (self):
         copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
@@ -454,6 +462,7 @@ class TestConvertManifest (unittest.TestCase):
             , validate0 = True, validate1 = True, validate_out = False, dry_run_out = False
             , expected0 = True, expected1 = True, expected_out = True
         )
+        rmtree ("/tmp/examples/sentinel_cages")
         
     def test_manifest10 (self):
         extant = "/tmp/manifest10.converted.ttl"
@@ -509,8 +518,10 @@ class TestConvertManifest (unittest.TestCase):
         extant_schema0_converted = "/tmp/examples/sentinel_cages/sentinel_cages_sampling.converted.ttl"
         extant_schema1_converted = "/tmp/examples/sentinel_cages/sentinel_cages_site.converted.ttl"
         extant_manifest_converted = "/tmp/manifest14.converted.yaml"
-        extant = [extant_schema0_converted, extant_schema1_converted, extant_manifest_converted]
-        map (lambda k : Path(k).touch(), extant)
+        Path (extant_schema0_converted).touch  ()
+        Path (extant_schema1_converted).touch  ()
+        Path (extant_manifest_converted).touch ()
+
         gen_test_manifest (
         self, message = "Build up known-good TTL data, paths already exist, dry run", n=14, fs_op = False
           , ontology_uri = data_model_uri
@@ -518,5 +529,82 @@ class TestConvertManifest (unittest.TestCase):
           , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
           , manifest_format_step_0 = "ttl", manifest_format_step_1 = "ttl", manifest_format_out = "ttl", force_out = False, manifest_format_converted = "yaml"
           , validate0 = True, validate1 = True, validate_out = True, dry_run_out = True
+          , expected0 = True, expected1 = True, expected_out = False
+        )
+        with open (extant_schema0_converted, "r") as fp0:
+            data = fp0.read ()
+            self.assertTrue (len (data) == 0)
+        with open (extant_schema1_converted, "r") as fp1:
+            data = fp1.read ()
+            self.assertTrue (len (data) == 0)
+        with open (extant_manifest_converted, "r") as fp2:
+            data = fp2.read ()
+            self.assertTrue (len (data) == 0)
+        os.remove (extant_manifest_converted)
+        rmtree ("/tmp/examples/sentinel_cages")
+            
+    def test_manifest15 (self):
+        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+        extant_schema0_converted = "/tmp/examples/sentinel_cages/sentinel_cages_sampling.converted.ttl"
+        extant_schema1_converted = "/tmp/examples/sentinel_cages/sentinel_cages_site.converted.ttl"
+        extant_manifest_converted = "/tmp/manifest15.converted.yaml"
+        Path (extant_schema0_converted).touch  ()
+        Path (extant_schema1_converted).touch  ()
+        Path (extant_manifest_converted).touch ()
+
+        gen_test_manifest (
+        self, message = "Build up known-good TTL data, paths already exist, dry run, would forcibly overwrite", n=15, fs_op = False
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "ttl", manifest_format_step_1 = "ttl", manifest_format_out = "ttl", force_out = True, manifest_format_converted = "yaml"
+          , validate0 = True, validate1 = True, validate_out = True, dry_run_out = True
           , expected0 = True, expected1 = True, expected_out = True
         )
+        with open (extant_schema0_converted, "r") as fp0:
+            data = fp0.read ()
+            self.assertTrue (len (data) == 0)
+        with open (extant_schema1_converted, "r") as fp1:
+            data = fp1.read ()
+            self.assertTrue (len (data) == 0)
+        with open (extant_manifest_converted, "r") as fp2:
+            data = fp2.read ()
+            self.assertTrue (len (data) == 0)
+        os.remove (extant_manifest_converted)
+        rmtree ("/tmp/examples/sentinel_cages")
+
+    def test_manifest16 (self):
+        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+        extant_schema_converted = "/tmp/examples/sentinel_cages/sentinel_cages_sampling.converted.ttl"
+        Path (extant_schema_converted).touch()
+        gen_test_manifest (
+            self, message = "Attempt schema validation/conversion, but at least one schema file already exists, dry run", n=16, fs_op=False
+            , ontology_uri = data_model_uri
+            , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+            , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+            , manifest_format_step_0 = "yaml", manifest_format_step_1 = "yaml", manifest_format_out = "yaml", force_out = False, manifest_format_converted = "ttl"
+            , validate0 = True, validate1 = True, validate_out = True, dry_run_out = False
+            , expected0 = True, expected1 = True, expected_out = False
+        )
+        with open (extant_schema_converted, "r") as fp0:
+            data = fp0.read ()
+            self.assertTrue (len (data) == 0)
+        rmtree ("/tmp/examples/sentinel_cages")
+
+    def test_manifest17 (self):
+        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+        extant_schema_converted = "/tmp/examples/sentinel_cages/sentinel_cages_sampling.converted.ttl"
+        Path (extant_schema_converted).touch()
+        gen_test_manifest (
+            self, message = "Attempt schema validation/conversion, but at least one schema file already exists, so disable validation, dry run", n=17, fs_op=False
+            , ontology_uri = data_model_uri
+            , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+            , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+            , manifest_format_step_0 = "yaml", manifest_format_step_1 = "yaml", manifest_format_out = "yaml", force_out = False, manifest_format_converted = "ttl"
+            , validate0 = True, validate1 = True, validate_out = False, dry_run_out = False
+            , expected0 = True, expected1 = True, expected_out = True
+        )
+        with open (extant_schema_converted, "r") as fp0:
+            data = fp0.read ()
+            self.assertTrue (len (data) == 0)
+        rmtree ("/tmp/examples/sentinel_cages")

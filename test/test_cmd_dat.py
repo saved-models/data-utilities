@@ -85,8 +85,9 @@ class TestAppend (unittest.TestCase):
           , serialise_mode = "yaml"
         )
         try:
-            os.remove ("/tmp/append0.yaml")
             self.assertTrue (test_initialise and test_append)
+            os.remove ("/tmp/append0.yaml")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -114,8 +115,9 @@ class TestAppend (unittest.TestCase):
           , serialise_mode = "ttl"
         )
         try:
-            os.remove ("/tmp/append1.ttl")
             self.assertTrue (test_initialise and test_append)
+            os.remove ("/tmp/append1.ttl")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -143,8 +145,9 @@ class TestAppend (unittest.TestCase):
           , serialise_mode = "ttl"
         )
         try:
-            os.remove ("/tmp/append2.yaml")
             self.assertTrue (test_initialise and not test_append)
+            os.remove ("/tmp/append2.yaml")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -172,8 +175,9 @@ class TestAppend (unittest.TestCase):
           , serialise_mode = "yaml"
         )
         try:
-            os.remove ("/tmp/append3.ttl")
             self.assertTrue (test_initialise and not test_append)
+            os.remove ("/tmp/append3.ttl")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -201,8 +205,9 @@ class TestAppend (unittest.TestCase):
           , serialise_mode = "yaml"
         )
         try:
-            os.remove ("/tmp/append4.yaml")
             self.assertTrue (test_initialise and test_append)
+            os.remove ("/tmp/append4.yaml")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -230,8 +235,9 @@ class TestAppend (unittest.TestCase):
           , serialise_mode = "ttl"
         )
         try:
-            os.remove ("/tmp/append5.ttl")
             self.assertTrue (test_initialise and test_append)
+            os.remove ("/tmp/append5.ttl")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -259,8 +265,9 @@ class TestAppend (unittest.TestCase):
           , serialise_mode = "ttl"
         )
         try:
-            os.remove ("/tmp/append6.ttl")
             self.assertTrue (test_initialise and test_append)
+            os.remove ("/tmp/append6.ttl")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -288,8 +295,9 @@ class TestAppend (unittest.TestCase):
           , serialise_mode = "ttl"
         )
         try:
-            os.remove ("/tmp/append7.ttl")
             self.assertTrue (test_initialise and not test_append)
+            os.remove ("/tmp/append7.ttl")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -317,8 +325,9 @@ class TestAppend (unittest.TestCase):
           , serialise_mode = "yaml"
         )
         try:
-            os.remove ("/tmp/append8.yaml")
             self.assertTrue (test_initialise and test_append)
+            os.remove ("/tmp/append8.yaml")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -346,8 +355,9 @@ class TestAppend (unittest.TestCase):
           , serialise_mode = "yaml"
         )
         try:
-            os.remove ("/tmp/append9.yaml")
             self.assertTrue (test_initialise and test_append)
+            os.remove ("/tmp/append9.yaml")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
     
@@ -386,8 +396,9 @@ class TestInit (unittest.TestCase):
           , serialise_mode = "yaml"
         )
         try:
-            os.remove ("/tmp/initialise0.yaml")
             self.assertTrue (test)
+            os.remove ("/tmp/initialise0.yaml")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
     
@@ -404,7 +415,12 @@ class TestInit (unittest.TestCase):
           , prefixes       = prefixes
           , serialise_mode = "yaml"
         )
-        self.assertFalse (test)
+        try:
+            self.assertFalse (test)
+            os.remove ("/tmp/initialise1.yaml")
+
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
 
     def test_manifest_init2 (self):
         print ("Test case #3: Data exists, but YAML schema does not, or vice versa")
@@ -429,7 +445,16 @@ class TestInit (unittest.TestCase):
           , prefixes       = prefixes
           , serialise_mode = "yaml"
         )
-        self.assertFalse (test0 or test1)
+        try:
+            self.assertFalse (test0 or test1)
+            os.remove ("/tmp/initialise2.yaml")
+
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+            try:
+                os.remove ("/tmp/initialise3.yaml")
+            except FileNotFoundError as e:
+                self.assertTrue (bool(e))
 
     def test_manifest_init3 (self):
         print ("Test case #4: Data/schema exist, but fail validation")
@@ -444,8 +469,13 @@ class TestInit (unittest.TestCase):
           , prefixes       = prefixes
           , serialise_mode = "yaml"
         )
-        self.assertFalse (test)
+        try:
+            self.assertFalse (test)
+            os.remove ("/tmp/initialise4.yaml")
 
+        except FileNotFoundError as e:
+            self.assertTrue (bool(e))
+            
     def test_manifest_init5 (self):
         print ("Test case #6: Data/schema exist, would fail [disabled] validation")
 
@@ -460,8 +490,9 @@ class TestInit (unittest.TestCase):
           , serialise_mode = "yaml"
         )
         try:
-            os.remove ("/tmp/initialise5.yaml")
             self.assertTrue (test)
+            os.remove ("/tmp/initialise5.yaml")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -479,8 +510,9 @@ class TestInit (unittest.TestCase):
           , serialise_mode = "yaml"
         )
         try:
-            os.remove ("/tmp/initialise6.yaml")
             self.assertTrue (test)
+            os.remove ("/tmp/initialise6.yaml")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -498,8 +530,9 @@ class TestInit (unittest.TestCase):
           , serialise_mode = "ttl"
         )
         try:
-            os.remove ("/tmp/initialise7.ttl")
             self.assertTrue (test)
+            os.remove ("/tmp/initialise7.ttl")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
 
@@ -516,7 +549,11 @@ class TestInit (unittest.TestCase):
          , prefixes       = prefixes_alt
          , serialise_mode = "ttl"
        )
-       self.assertFalse (test)
+       try:
+           self.assertFalse (test)
+           os.remove("/tmp/initialise8.ttl")
+       except FileNotFoundError as e:
+           self.assertTrue (bool(e))
        
     def test_manifest_init_9 (self):
         print ("Test case #10: Initialise with unvalidated data")
@@ -532,7 +569,8 @@ class TestInit (unittest.TestCase):
          , serialise_mode = "ttl"
         )
         try:
-            os.remove ("/tmp/initialise9.ttl")
             self.assertTrue (test)
+            os.remove ("/tmp/initialise9.ttl")
+            
         except FileNotFoundError as e:
             self.assertFalse (bool(e))
