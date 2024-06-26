@@ -179,73 +179,73 @@ class TestConvertSchema (unittest.TestCase):
 
 
 def gen_test_manifest (self, message, n
-                     , man_in, man_conv
-                     , ont #,tmpcwd
-                     , res0, sch0, sch0conv, man_fmt0
-                     , res1, sch1, sch1conv, man_fmt1
-                     , man_fmt_out, force_out, man_fmt_conv
-                     , val0, val1, val_out, dry_run_out
-                     , exp0, exp1, exp_out, fs_op = True):
+                     , ontology_uri #,tmpcwd
+                     , resource_step_0, schema_step_0, schema_step_0_converted, manifest_format_step_0
+                     , resource_step_1, schema_step_1, schema_step_1_converted, manifest_format_step_1
+                     , manifest_format_out, force_out, manifest_format_converted
+                     , validate0, validate1, validate_out, dry_run_out
+                     , expected0, expected1, expected_out, fs_op = True):
+
+    output_name        = f"LeafManifest{n}"
+    output_uri         = f"https://marine.gov.scot/metadata/saved/rap/LeafManifest{n}"
+    output_manifest    = f"/tmp/manifest{n}.{manifest_format_step_0}"
+    converted_manifest = f"/tmp/manifest{n}.converted.{manifest_format_converted}"
+    
     print (f"Manifest conversion case {n}: {message}")
     print (f"""For this test:
-      Manifest to work on: {man_in}
-      Manifest to convert to: {man_conv}
-      Initialisation: Data file {res0}, input schema file {sch0}, converted schema file {sch0conv}, manifest working format {man_fmt0}
-      Append:         Data file {res1}, input schema file {sch1}, converted schema file {sch1conv}, manifest working format {man_fmt1}
-      Coalesce format: {man_fmt_out} (force: {force_out}), manifest convert to {man_conv}
-      Validate on manifest initialisation: {val0}
-      Validate on manifest append: {val1}
-      Validate/convert table schema: {val_out}
+      Manifest to work on: {output_manifest}
+      Manifest to convert to: {converted_manifest}
+      Initialisation: Data file {resource_step_0}, input schema file {schema_step_0}, converted schema file {schema_step_0_converted}, manifest working format {manifest_format_step_0}
+      Append:         Data file {resource_step_1}, input schema file {schema_step_1}, converted schema file {schema_step_1_converted}, manifest working format {manifest_format_step_1}
+      Coalesce format: {manifest_format_out} (force: {force_out})
+      Validate on manifest initialisation: {validate0}
+      Validate on manifest append: {validate1}
+      Validate/convert table schema: {validate_out}
       Simulate manifest conversion: {dry_run_out}
-      Expected results: Initialisation: {exp0}; Append: {exp1}; Conversion: {exp_out}
+      Expectedected results: Initialisation: {expected0}; Append: {expected1}; Conversion: {expected_out}
     """)
     if (fs_op):
         copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
 
-    output_name        = f"LeafManifest{n}"
-    output_uri         = f"https://marine.gov.scot/metadata/saved/rap/LeafManifest{n}"
-    output_manifest    = f"/tmp/manifest{n}.{man_fmt0}"
-    converted_manifest = f"/tmp/manifest{n}.converted.{man_fmt_conv}"
-
     test_initialise = manifest_wrapper (
-            data = str(res0)
-            , schema = str(sch0)
-            , data_model_uri = ont
-            , manifest = output_manifest
-            , manifest_name = output_name
-            , validate = val0
-            , prefixes = prefixes
-            , serialise_mode = man_fmt0
+            data            = str(resource_step_0)
+          , schema          = str(schema_step_0)
+          , data_model_uri  = ontology_uri
+          , manifest        = output_manifest
+          , manifest_name   = output_name
+          , validate        = validate0
+          , prefixes        = prefixes
+          , serialise_mode  = manifest_format_step_0
     )
     print (f"Manifest conversion case {n}: Initialise result: {test_initialise}")
     test_append = manifest_wrapper (
-            data = str(res1)
-            , schema = str(sch1)
-            , data_model_uri = ont
-            , manifest = output_manifest
-            , manifest_name = output_name
-            , validate = val1
-            , prefixes = prefixes
-            , serialise_mode = man_fmt1
+            data            = str(resource_step_1)
+          , schema          = str(schema_step_1)
+          , data_model_uri  = ontology_uri
+          , manifest        = output_manifest
+          , manifest_name   = output_name
+          , validate        = validate1
+          , prefixes        = prefixes
+          , serialise_mode  = manifest_format_step_1
     )
     print (f"Manifest conversion case {n}: Append result: {test_append}")
     (test_signal, test_obj, test_path_yaml, test_path_ttl, test_uri) = coalesce_manifest (
             manifest_path   = output_manifest
-            , manifest_format = man_fmt_out
-            , data_model_uri  = ont
-            , prefixes        = prefixes
-            , gcp_source      = None
-            , dry_run         = dry_run_out
-            , convert_schema  = val_out 
-            , force           = force_out
-            , fake_cwd        = "/tmp/examples/sentinel_cages/"
+          , manifest_format = manifest_format_out
+          , data_model_uri  = ontology_uri
+          , prefixes        = prefixes
+          , gcp_source      = None
+          , dry_run         = dry_run_out
+          , convert_schema  = validate_out 
+          , force           = force_out
+          , fake_cwd        = "/tmp/examples/sentinel_cages/"
     )
     print (f"Manifest conversion case {n}: Coalesce result: {test_signal}")
     
     
     if test_obj is None:
         print (f"Manifest conversion case {n}: returned object None, remaining fields not filled out")
-        test_results = [exp0 == test_initialise, exp1 == test_append
+        test_results = [expected0 == test_initialise, expected1 == test_append
                       , not test_signal
                       , test_obj is None, test_path_yaml is None, test_path_ttl is None, test_uri is None]
         try:
@@ -259,41 +259,41 @@ def gen_test_manifest (self, message, n
     
     else:
         print (f"Manifest conversion case {n}, I found: {test_path_yaml}, {test_path_ttl}, {test_uri}")
-        [table0] = list (filter (lambda k : k.schema_path_yaml == sch0.name, test_obj.tables))
-        [table1] = list (filter (lambda k : k.schema_path_yaml == sch1.name, test_obj.tables))
+        [table0] = list (filter (lambda k : k.schema_path_yaml == schema_step_0.name, test_obj.tables))
+        [table1] = list (filter (lambda k : k.schema_path_yaml == schema_step_1.name, test_obj.tables))
 
         print (f"Manifest conversion case {n}, I found tables:")
         print (table0)
         print (table1)
         
         # Fairly annoying:
-        if (man_fmt_conv == "ttl"):
-            test_fmt = test_path_yaml == PurePath (man_in) and test_path_ttl == PurePath (man_conv)
-        elif (man_fmt_conv == "yaml"):
-            test_fmt = test_path_yaml == PurePath (man_conv) and test_path_ttl == PurePath (man_in)
+        if (manifest_format_converted == "ttl"):
+            test_fmt = test_path_yaml == PurePath (output_manifest) and test_path_ttl == PurePath (converted_manifest)
+        elif (manifest_format_converted == "yaml"):
+            test_fmt = test_path_yaml == PurePath (converted_manifest) and test_path_ttl == PurePath (output_manifest)
         else:
             test_fmt = False
 
-        print (f"SCH0: {sch0.name}, SCH1: {sch1.name}, SCH0CONV: {sch0conv.name}, SCH1CONV: {sch1conv.name}")
+        print (f"SCHEMA_STEP_0: {schema_step_0.name}, SCHEMA_STEP_1: {schema_step_1.name}, SCHEMA_STEP_0_CONVERTED: {schema_step_0_converted.name}, SCHEMA_STEP_1_CONVERTED: {schema_step_1_converted.name}")
         print (f"T0YML: {table0.schema_path_yaml}, T1YML: {table1.schema_path_yaml}, T0TTL: {table0.schema_path_ttl}, T1TTL: {table1.schema_path_ttl}")
-        if (val_out and exp_out):
+        if (validate_out and expected_out):
             test_tables = all ([
-                table0.schema_path_yaml == sch0.name
-              , table1.schema_path_yaml == sch1.name
-              , table0.schema_path_ttl  == sch0conv.name
-              , table1.schema_path_ttl  == sch1conv.name
+                table0.schema_path_yaml == schema_step_0.name
+              , table1.schema_path_yaml == schema_step_1.name
+              , table0.schema_path_ttl  == schema_step_0_converted.name
+              , table1.schema_path_ttl  == schema_step_1_converted.name
             ])
         else:
             test_tables = all ([
-                table0.schema_path_yaml == sch0.name
-              , table1.schema_path_yaml == sch1.name
+                table0.schema_path_yaml == schema_step_0.name
+              , table1.schema_path_yaml == schema_step_1.name
               , table0.schema_path_ttl  is None
               , table1.schema_path_ttl  is None
             ])
         
-        test_results = [exp0 == test_initialise
-                      , exp1 == test_append
-                      , exp_out  == test_signal
+        test_results = [expected0 == test_initialise
+                      , expected1 == test_append
+                      , expected_out  == test_signal
                       , test_uri == output_uri
                       , test_fmt, test_tables ]
         
@@ -301,7 +301,7 @@ def gen_test_manifest (self, message, n
             print (test_results)
             if (test_initialise):
                 os.remove (output_manifest)
-            if (test_signal):
+            if (test_signal and not dry_run_out):
                 os.remove (converted_manifest)
             rmtree ("/tmp/examples/sentinel_cages")   
             self.assertTrue (all (test_results))
@@ -328,27 +328,23 @@ class TestConvertManifest (unittest.TestCase):
     def test_manifest00 (self):
         gen_test_manifest (
             self, message = "Build up known-good YAML data", n=0
-          , man_in   = "/tmp/manifest0.yaml"
-          , man_conv = "/tmp/manifest0.converted.ttl"
-          , ont = data_model_uri
-          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
-          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
-          , man_fmt0 = "yaml", man_fmt1 = "yaml", man_fmt_out = "yaml", force_out = False, man_fmt_conv = "ttl"
-          , val0 = True, val1 = True, val_out = True, dry_run_out = False
-          , exp0 = True, exp1 = True, exp_out = True
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "yaml", manifest_format_step_1 = "yaml", manifest_format_out = "yaml", force_out = False, manifest_format_converted = "ttl"
+          , validate0 = True, validate1 = True, validate_out = True, dry_run_out = False
+          , expected0 = True, expected1 = True, expected_out = True
         )
 
     def test_manifest01 (self):
         gen_test_manifest (
             self, message = "Build up known-good TTL data", n=1
-          , man_in   = "/tmp/manifest1.ttl"
-          , man_conv = "/tmp/manifest1.converted.yaml"
-          , ont = data_model_uri
-          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
-          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
-          , man_fmt0 = "ttl", man_fmt1 = "ttl", man_fmt_out = "ttl", force_out = False, man_fmt_conv = "yaml"
-          , val0 = True, val1 = True, val_out = True, dry_run_out = False
-          , exp0 = True, exp1 = True, exp_out = True
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "ttl", manifest_format_step_1 = "ttl", manifest_format_out = "ttl", force_out = False, manifest_format_converted = "yaml"
+          , validate0 = True, validate1 = True, validate_out = True, dry_run_out = False
+          , expected0 = True, expected1 = True, expected_out = True
         )
 
     def test_manifest02 (self):
@@ -390,53 +386,45 @@ class TestConvertManifest (unittest.TestCase):
     def test_manifest04 (self):
         gen_test_manifest (
             self, message = "Try loading YAML manifest using TTL loader", n=4
-          , man_in   = "/tmp/manifest4.yaml"
-          , man_conv = "/tmp/manifest4.converted.ttl"
-          , ont = data_model_uri
-          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
-          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
-          , man_fmt0 = "yaml", man_fmt1 = "yaml", man_fmt_out = "ttl", force_out = False, man_fmt_conv = "yaml"
-          , val0 = True, val1 = True, val_out = True, dry_run_out = False
-          , exp0 = True, exp1 = True, exp_out = False
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "yaml", manifest_format_step_1 = "yaml", manifest_format_out = "ttl", force_out = False, manifest_format_converted = "yaml"
+          , validate0 = True, validate1 = True, validate_out = True, dry_run_out = False
+          , expected0 = True, expected1 = True, expected_out = False
         )
 
     def test_manifest05 (self):
         gen_test_manifest (
             self, message = "Try loading TTL manifest using YAML loader", n=5
-          , man_in   = "/tmp/manifest5.ttl"
-          , man_conv = "/tmp/manifest5.converted.yaml"
-          , ont = data_model_uri
-          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
-          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
-          , man_fmt0 = "ttl", man_fmt1 = "ttl", man_fmt_out = "yaml", force_out = False, man_fmt_conv = "ttl"
-          , val0 = True, val1 = True, val_out = True, dry_run_out = False
-          , exp0 = True, exp1 = True, exp_out = False
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "ttl", manifest_format_step_1 = "ttl", manifest_format_out = "yaml", force_out = False, manifest_format_converted = "ttl"
+          , validate0 = True, validate1 = True, validate_out = True, dry_run_out = False
+          , expected0 = True, expected1 = True, expected_out = False
         )
 
     def test_manifest06 (self):
         gen_test_manifest (
             self, message = "Try loading with invalid loader format ('jsonld')", n=6
-          , man_in   = "/tmp/manifest6.ttl"
-          , man_conv = "/tmp/manifest6.converted.yaml"
-          , ont = data_model_uri
-          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
-          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
-          , man_fmt0 = "ttl", man_fmt1 = "ttl", man_fmt_out = "jsonld", force_out = False, man_fmt_conv = "ttl"
-          , val0 = True, val1 = True, val_out = True, dry_run_out = False
-          , exp0 = True, exp1 = True, exp_out = False
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "ttl", manifest_format_step_1 = "ttl", manifest_format_out = "jsonld", force_out = False, manifest_format_converted = "ttl"
+          , validate0 = True, validate1 = True, validate_out = True, dry_run_out = False
+          , expected0 = True, expected1 = True, expected_out = False
         )
 
     def test_manifest07 (self):
         gen_test_manifest (
             self, message = "Test disabling schema validation/conversion returns no TTL conversion, but success converting manifest proper", n=7
-          , man_in   = "/tmp/manifest7.yaml"
-          , man_conv = "/tmp/manifest7.converted.ttl"
-          , ont = data_model_uri
-          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
-          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
-          , man_fmt0 = "yaml", man_fmt1 = "yaml", man_fmt_out = "yaml", force_out = False, man_fmt_conv = "ttl"
-          , val0 = True, val1 = True, val_out = False, dry_run_out = False
-          , exp0 = True, exp1 = True, exp_out = True
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "yaml", manifest_format_step_1 = "yaml", manifest_format_out = "yaml", force_out = False, manifest_format_converted = "ttl"
+          , validate0 = True, validate1 = True, validate_out = False, dry_run_out = False
+          , expected0 = True, expected1 = True, expected_out = True
         )
 
     def test_manifest08 (self):
@@ -445,14 +433,12 @@ class TestConvertManifest (unittest.TestCase):
         Path (extant_schema).touch()
         gen_test_manifest (
             self, message = "Attempt schema validation/conversion, but at least one schema file already exists", n=8, fs_op=False
-            , man_in = "/tmp/manifest8.yaml"
-            , man_conv = "/tmp/manifest8.converted.ttl"
-            , ont = data_model_uri
-            , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
-            , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
-            , man_fmt0 = "yaml", man_fmt1 = "yaml", man_fmt_out = "yaml", force_out = False, man_fmt_conv = "ttl"
-            , val0 = True, val1 = True, val_out = True, dry_run_out = False
-            , exp0 = True, exp1 = True, exp_out = False
+            , ontology_uri = data_model_uri
+            , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+            , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+            , manifest_format_step_0 = "yaml", manifest_format_step_1 = "yaml", manifest_format_out = "yaml", force_out = False, manifest_format_converted = "ttl"
+            , validate0 = True, validate1 = True, validate_out = True, dry_run_out = False
+            , expected0 = True, expected1 = True, expected_out = False
         )
 
     def test_manifest09 (self):
@@ -461,14 +447,12 @@ class TestConvertManifest (unittest.TestCase):
         Path (extant_schema).touch()
         gen_test_manifest (
             self, message = "Attempt schema validation/conversion, but at least one schema file already exists, so disable validation", n=9, fs_op=False
-            , man_in = "/tmp/manifest9.yaml"
-            , man_conv = "/tmp/manifest9.converted.ttl"
-            , ont = data_model_uri
-            , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
-            , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
-            , man_fmt0 = "yaml", man_fmt1 = "yaml", man_fmt_out = "yaml", force_out = False, man_fmt_conv = "ttl"
-            , val0 = True, val1 = True, val_out = False, dry_run_out = False
-            , exp0 = True, exp1 = True, exp_out = True
+            , ontology_uri = data_model_uri
+            , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+            , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+            , manifest_format_step_0 = "yaml", manifest_format_step_1 = "yaml", manifest_format_out = "yaml", force_out = False, manifest_format_converted = "ttl"
+            , validate0 = True, validate1 = True, validate_out = False, dry_run_out = False
+            , expected0 = True, expected1 = True, expected_out = True
         )
         
     def test_manifest10 (self):
@@ -476,14 +460,12 @@ class TestConvertManifest (unittest.TestCase):
         Path (extant).touch ()
         gen_test_manifest (
             self, message = "Converted manifest target file already exists", n=10
-          , man_in   = "/tmp/manifest10.yaml"
-          , man_conv = extant
-          , ont = data_model_uri
-          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
-          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
-          , man_fmt0 = "yaml", man_fmt1 = "yaml", man_fmt_out = "yaml", force_out = False, man_fmt_conv = "ttl"
-          , val0 = True, val1 = True, val_out = True, dry_run_out = False
-          , exp0 = True, exp1 = True, exp_out = False
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "yaml", manifest_format_step_1 = "yaml", manifest_format_out = "yaml", force_out = False, manifest_format_converted = "ttl"
+          , validate0 = True, validate1 = True, validate_out = True, dry_run_out = False
+          , expected0 = True, expected1 = True, expected_out = False
         )
         os.remove (extant)
 
@@ -492,13 +474,49 @@ class TestConvertManifest (unittest.TestCase):
         Path (extant).touch ()
         gen_test_manifest (
             self, message = "Converted manifest target file already exists, forcibly overwrite", n=11
-          , man_in   = "/tmp/manifest11.yaml"
-          , man_conv = extant
-          , ont = data_model_uri
-          , res0 = data0, sch0 = schema_yaml0, sch0conv = schema_ttl0_c
-          , res1 = data1, sch1 = schema_yaml1, sch1conv = schema_ttl1_c
-          , man_fmt0 = "yaml", man_fmt1 = "yaml", man_fmt_out = "yaml", force_out = True, man_fmt_conv = "ttl"
-          , val0 = True, val1 = True, val_out = True, dry_run_out = False
-          , exp0 = True, exp1 = True, exp_out = True
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "yaml", manifest_format_step_1 = "yaml", manifest_format_out = "yaml", force_out = True, manifest_format_converted = "ttl"
+          , validate0 = True, validate1 = True, validate_out = True, dry_run_out = False
+          , expected0 = True, expected1 = True, expected_out = True
+        )
+
+    def test_manifest12 (self):
+        gen_test_manifest (
+            self, message = "Build up known-good YAML data, dry run", n=12
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "yaml", manifest_format_step_1 = "yaml", manifest_format_out = "yaml", force_out = False, manifest_format_converted = "ttl"
+          , validate0 = True, validate1 = True, validate_out = True, dry_run_out = True
+          , expected0 = True, expected1 = True, expected_out = True
         )
         
+    def test_manifest13 (self):
+        gen_test_manifest (
+            self, message = "Build up known-good TTL data, dry run", n=13
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "ttl", manifest_format_step_1 = "ttl", manifest_format_out = "ttl", force_out = False, manifest_format_converted = "yaml"
+          , validate0 = True, validate1 = True, validate_out = True, dry_run_out = True
+          , expected0 = True, expected1 = True, expected_out = True
+        )
+
+    def test_manifest14 (self):
+        copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
+        extant_schema0_converted = "/tmp/examples/sentinel_cages/sentinel_cages_sampling.converted.ttl"
+        extant_schema1_converted = "/tmp/examples/sentinel_cages/sentinel_cages_site.converted.ttl"
+        extant_manifest_converted = "/tmp/manifest14.converted.yaml"
+        extant = [extant_schema0_converted, extant_schema1_converted, extant_manifest_converted]
+        map (lambda k : Path(k).touch(), extant)
+        gen_test_manifest (
+        self, message = "Build up known-good TTL data, paths already exist, dry run", n=14, fs_op = False
+          , ontology_uri = data_model_uri
+          , resource_step_0 = data0, schema_step_0 = schema_yaml0, schema_step_0_converted = schema_ttl0_c
+          , resource_step_1 = data1, schema_step_1 = schema_yaml1, schema_step_1_converted = schema_ttl1_c
+          , manifest_format_step_0 = "ttl", manifest_format_step_1 = "ttl", manifest_format_out = "ttl", force_out = False, manifest_format_converted = "yaml"
+          , validate0 = True, validate1 = True, validate_out = True, dry_run_out = True
+          , expected0 = True, expected1 = True, expected_out = True
+        )
