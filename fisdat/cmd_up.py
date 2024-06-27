@@ -1,5 +1,3 @@
-from rdflib            import Graph, Namespace, Literal
-from rdflib.collection import Collection
 from datetime          import datetime
 from google.cloud      import storage
 from google.cloud      import client as gc
@@ -7,11 +5,9 @@ from hashlib           import sha384
 import argparse
 import codecs
 import copy
-import json
 import logging
-from os.path import isfile, basename, dirname
-from os      import chdir
-from pathlib import Path, PurePath
+from os.path import isfile
+from pathlib import PurePath
 import time
 from typing import Optional
 import uuid
@@ -20,19 +16,14 @@ import rdflib.plugins.parsers.notation3
 import urllib.error
 import yaml.scanner
 
-from linkml.generators.pythongen     import PythonGenerator
 from linkml.generators.rdfgen        import RDFGenerator
-from linkml.utils.schema_builder     import SchemaBuilder
 from linkml.utils.schemaloader       import SchemaLoader
-from linkml.validator                import validate_file
-from linkml.validator.report         import Severity, ValidationResult, ValidationReport
 from linkml_runtime.dumpers          import RDFLibDumper, YAMLDumper
 from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
-from linkml_runtime.utils.schemaview import SchemaView, SchemaDefinition
+from linkml_runtime.utils.schemaview import SchemaView
 
 from fisdat            import __version__, __commit__
-from fisdat.ns         import CSVW
-from fisdat.utils      import error, fst, extension_helper, prefix_helper, job_table
+from fisdat.utils      import extension_helper, prefix_helper, job_table
 from fisdat.data_model import TableDesc, ManifestDesc
 
 ## data read/write buffer size, 1MB
@@ -100,7 +91,7 @@ def prep_index (manifest_path_yaml : str
         padding_line = '-' * (inner_padding + 4)
         padded_lines = map (lambda k : "| " + str(k) + (' ' * (inner_padding - len(str(k)))) + " |", files)
         all_lines    = '\n'.join ([padding_line] + list(padded_lines) + [padding_line])
-        print ("Would have written the following index file contents:")
+        print (f"Would have written the following to index file {index_name}:")
         print (all_lines)
     else:
         index_contents = f"{manifest_path_yaml}\n{manifest_path_ttl}\n{base_prefix}\n{manifest_uri}"
@@ -237,7 +228,7 @@ def coalesce_manifest (manifest_path   : str
                      , convert_schema  : bool = True
                      , conversion_stem : str  = "converted"
                      , fake_cwd        : str  = ""
-    ) -> (bool, Optional[ManifestDesc], Optional[str], Optional[str], Optional[str], Optional[str]):
+    ) -> (bool, Optional[ManifestDesc], Optional[PurePath], Optional[PurePath], Optional[str]):
     '''
     The YAML files are provided and edited locally, but we can't process
     these with non-Python tooling. This function converts schemata
@@ -329,7 +320,7 @@ def coalesce_manifest (manifest_path   : str
     '''
     if (manifest_feasible):
         logging.debug (f"Original manifest tables: {manifest_obj.tables}")
-        copied_obj = copy.deepcopy (manifest_obj)
+        copied_obj   = copy.deepcopy (manifest_obj)
         rough_tables = map (lambda t : coalesce_table(t, fake_cwd, dry_run, force, convert_schema, conversion_stem), copied_obj.tables)
         tables_signals, tables_results = zip(*rough_tables)
 
@@ -411,10 +402,16 @@ def cli () -> None:
                        , default  = "https://marine.gov.scot/metadata/saved/rap/")
     parser.add_argument ("--no-convert-schema", "--no-validate-schema", "--no-validate"
                        , help     = "Disable schema validation/conversion when converting manifest"
-                       , action   = "store_true")
-    parser.add_argument ("-n", "--no-upload", "--dry-run"
+                       , action   = "store_true"
+                       , default  = False)
+    parser.add_argument ("-n", "--no-upload"
                        , help     = "Don't upload files"
-                       , action   = "store_true")
+                       , action   = "store_true"
+                       , default  = False)
+    parser.add_argument ("--dry-run"
+                       , help     = "Simulate program operation"
+                       , action   = "store_true"
+                       , default  = False)
     parser.add_argument ("-F", "--force"
                        , help = "Forcibly overwrite files in case of conflicts"
                        , action = "store_true"
@@ -462,7 +459,8 @@ def cli () -> None:
     #    no_validate = args.no_validate
     #    dry_run     = args.no_upload
     convert_schema = not args.no_convert_schema
-    dry_run        = args.no_upload
+    dry_run        = args.dry_run
+    no_upload      = args.dry_run or args.no_upload
 
     (test_signal, manifest_obj, manifest_yaml, manifest_ttl, manifest_uri) = coalesce_manifest (
             manifest_path   = args.manifest
@@ -493,7 +491,7 @@ def cli () -> None:
                        , str (manifest_ttl)
                        , index] + resources + schemata_yaml + schemata_ttl
         
-        url = upload_files (args, staging_files, short_name, time_stamp, dry_run)
+        url = upload_files (args, staging_files, short_name, time_stamp, no_upload)
 
         if (dry_run):
             print(f"Would have uploaded your data/job set/bundle to {url}")

@@ -1,16 +1,12 @@
-from linkml.generators.pythongen     import PythonGenerator
 from linkml.utils.schemaloader       import SchemaLoader
-from linkml.utils.schema_builder     import SchemaBuilder
 from linkml_runtime.dumpers          import RDFLibDumper, YAMLDumper
-from linkml_runtime.linkml_model     import SchemaDefinition
 from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
 from linkml_runtime.utils.schemaview import SchemaView
 
 import argparse
 from hashlib    import sha384
 from os.path    import isfile
-from pathlib    import Path, PurePath
-import inspect
+from pathlib    import PurePath
 import logging
 
 import rdflib.plugins.parsers.notation3
@@ -20,7 +16,7 @@ import yaml.scanner
 from fisdat            import __version__, __commit__
 from fisdat.data_model import JobDesc, TableDesc, ManifestDesc
 from fisdat.ns         import CSVW
-from fisdat.utils      import fst, error, extension_helper, job_table, schema_components_helper, take, validation_helper
+from fisdat.utils      import extension_helper, job_table, schema_components_helper, validation_helper
 
 def dump_wrapper (py_obj
                 , data_model_view : SchemaView
@@ -292,7 +288,7 @@ def cli () -> None:
     parser.add_argument ("schema"  , help = "Schema file/URI (YAML)", type = str)
     parser.add_argument ("csvfile" , help = "CSV data file", type = str)
     parser.add_argument ("manifest", help = "Target manifest file (will overwrite)", type = str)
-    parser.add_argument ("-n", "--no-validate", "--dry-run"
+    parser.add_argument ("-n", "--no-validate"
                        , help     = "Disable validation"
                        , action   = "store_true")
     parser.add_argument ("--data-model-uri", "--data-model"
