@@ -126,10 +126,10 @@ def convert_feasibility (input_path  : str
         logging.debug (f"Called `convert_feasibility (input_path = {input_path}, target_path = {target_path}, force = {force})'")
         output_path_pure = PurePath (target_path)
         
-    if (output_path_pure.suffix == input_path_pure.suffix):
-        print (f"Target extension {target_ext} is same as input, won't do anything")
-        stage_write = (False, output_path_pure)
-    elif (not isfile (output_path_pure)):
+    #if (output_path_pure.suffix == input_path_pure.suffix):
+    #    print (f"Target extension {target_ext} is same as input, won't do anything")
+    #    stage_write = (False, output_path_pure)
+    if (not isfile (output_path_pure)):
         print (f"Target file {output_path_pure} doesn't exist, so overwrite")
         stage_write = (True, output_path_pure)
     elif (isfile (output_path_pure) and force):
@@ -247,6 +247,10 @@ def coalesce_manifest (manifest_path   : str
     '''
     logging.debug (f"Called `coalesce_manifest (manifest_path = {manifest_path}, data_model_uri = {data_model_uri}, prefixes = {prefixes}, gcp_source = {gcp_source})'")
 
+    dumper_ttl = RDFLibDumper ()
+    dumper_yml = YAMLDumper ()
+    loader_ttl = RDFLibLoader ()
+    loader_yml = YAMLLoader ()
     '''
     1. Initial validation of arguments
     '''
@@ -263,31 +267,36 @@ def coalesce_manifest (manifest_path   : str
 
     '''
     2. Load manifest with either TTL or YAML loader
+       Turtle is what is actually read, so also check feasibility of creating
+       a *new* TTL manifest which will include the `schema_ttl' attribute
     '''
     if (manifest_format == "ttl"):
-        loader = RDFLibLoader ()
-        dumper = YAMLDumper   ()
         try:
-            manifest_obj = loader.load (source       = manifest_path
-                                      , target_class = ManifestDesc
-                                      , schemaview   = py_data_model_view)
-            manifest_path_ttl = PurePath (manifest_path)
-            (manifest_feasible, manifest_path_yaml) = convert_feasibility (
-                input_path      = manifest_path_ttl
-              , target_ext      = f"{conversion_stem}.yaml"
-              , force           = force
+            manifest_obj = loader_ttl.load (source       = manifest_path
+                                          , target_class = ManifestDesc
+                                          , schemaview   = py_data_model_view)
+            (annotated_feasible, annotated_path_ttl) = convert_feasibility (
+                input_path = PurePath (manifest_path)
+              , target_ext = "annotated.ttl"
+              , force      = force
             )
+            
+            (conv_feasible, manifest_path_yaml) = convert_feasibility (
+                input_path = PurePath (manifest_path)
+              , target_ext = f"{conversion_stem}.yaml"
+              , force      = force
+            )
+            # Always return the annotated path, and above two must succeed
+            manifest_path_ttl = annotated_path_ttl
+            manifest_feasible = conv_feasible and annotated_feasible
         except rdflib.plugins.parsers.notation3.BadSyntax:
             print (f"Cannot load file {manifest_path} with the RDF/TTL loader. Is your manifest a YAML manifest? (\"yaml\" `--manifest-format' option)")
             return (False, None, None, None, None)
 
     elif (manifest_format == "yaml"):
-        loader = YAMLLoader   ()
-        dumper = RDFLibDumper ()
-
         try:
-            manifest_obj = loader.load (source       = manifest_path
-                                      , target_class = ManifestDesc)
+            manifest_obj = loader_yml.load (source       = manifest_path
+                                          , target_class = ManifestDesc)
 
             manifest_path_yaml = PurePath (manifest_path)
             (manifest_feasible, manifest_path_ttl) = convert_feasibility (
@@ -346,13 +355,18 @@ def coalesce_manifest (manifest_path   : str
             print (f"Conversion of manifest from YAML {manifest_path_yaml} to TTL {manifest_path_ttl} would not have been feasible!")
     
     elif (manifest_feasible):
+        dumper_ttl = RDFLibDumper()
+        dumper_yml = YAMLDumper()
         if (manifest_format == "ttl"):
-            dumper.dump (manifest_obj, manifest_path_yaml)
+            dumper_yml.dump (manifest_obj, manifest_path_yaml)
+            dumper_ttl.dump (manifest_obj, manifest_path_ttl
+                           , schemaview = py_data_model_view
+                           , prefix_map = prefixes)
             return (True, manifest_obj, manifest_path_yaml, manifest_path_ttl, manifest_uri)
         else:
-            dumper.dump (manifest_obj, manifest_path_ttl
-                       , schemaview = py_data_model_view
-                       , prefix_map = prefixes)   
+            dumper_ttl.dump (manifest_obj, manifest_path_ttl
+                           , schemaview = py_data_model_view
+                           , prefix_map = prefixes)   
         print (job_table (manifest_obj, preamble = False, mode = 'r'))
     
     else:
@@ -493,7 +507,7 @@ def cli () -> None:
         
         url = upload_files (args, staging_files, short_name, time_stamp, no_upload)
 
-        if (dry_run):
+        if (no_upload):
             print(f"Would have uploaded your data/job set/bundle to {url}")
         else:
             print(f"Successfully uploaded your data/job set/bundle to {url}")

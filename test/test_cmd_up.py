@@ -192,8 +192,18 @@ def gen_test_manifest (self, message, n
 
     output_name        = f"LeafManifest{n}"
     output_uri         = f"https://marine.gov.scot/metadata/saved/rap/LeafManifest{n}"
-    output_manifest    = f"/tmp/manifest{n}.{manifest_format_step_0}"
+    
+    #if (manifest_format_out == "ttl"):
+    #    output_manifest = f"/tmp/manifest{n}.annotated.ttl"
+    #else:
+    #    output_manifest = f"/tmp/manifest{n}.{manifest_format_step_0}"
+    output_manifest = f"/tmp/manifest{n}.{manifest_format_step_0}"
     converted_manifest = f"/tmp/manifest{n}.converted.{manifest_format_converted}"
+
+    if (manifest_format_out == "ttl"):
+        annotated_manifest = f"/tmp/manifest{n}.annotated.ttl"
+    else:
+        annotated_manifest = output_manifest
     
     print (f"Manifest conversion case {n}: {message}")
     print (f"""For this test:
@@ -206,7 +216,7 @@ def gen_test_manifest (self, message, n
       Validate on manifest append: {validate1}
       Validate/convert table schema: {validate_out}
       Simulate manifest conversion: {dry_run_out}
-      Expectedected results: Initialisation: {expected0}; Append: {expected1}; Conversion: {expected_out}
+      Expected results: Initialisation: {expected0}; Append: {expected1}; Conversion: {expected_out}
     """)
     if (fs_op):
         copytree ("examples/sentinel_cages", "/tmp/examples/sentinel_cages", ignore = ignore_patterns ("*.ttl"))
@@ -246,7 +256,6 @@ def gen_test_manifest (self, message, n
     )
     print (f"Manifest conversion case {n}: Coalesce result: {test_signal}")
     
-    
     if test_obj is None:
         print (f"Manifest conversion case {n}: returned object None, remaining fields not filled out")
         test_results = [expected0 == test_initialise, expected1 == test_append
@@ -272,9 +281,11 @@ def gen_test_manifest (self, message, n
         
         # Fairly annoying:
         if (manifest_format_converted == "ttl"):
+            print (f"Manifest conversion case {n}, cf {output_manifest}, {converted_manifest}")
             test_fmt = test_path_yaml == PurePath (output_manifest) and test_path_ttl == PurePath (converted_manifest)
         elif (manifest_format_converted == "yaml"):
-            test_fmt = test_path_yaml == PurePath (converted_manifest) and test_path_ttl == PurePath (output_manifest)
+            print (f"Manifest conversion case {n}, cf {converted_manifest}, {annotated_manifest}")
+            test_fmt = test_path_yaml == PurePath (converted_manifest) and test_path_ttl == PurePath (annotated_manifest)
         else:
             test_fmt = False
 
@@ -305,10 +316,16 @@ def gen_test_manifest (self, message, n
             print (test_results)
             self.assertTrue (all (test_results))
             if (test_initialise):
+                print (f"Removing initially composed manifest {output_manifest}")
                 os.remove (output_manifest)
             if (test_signal and not dry_run_out):
+                print (f"Removing converted manifest {converted_manifest}")
                 os.remove (converted_manifest)
+                if (manifest_format_out == "ttl"):
+                    print (f"Removing annotated TTL manifest {annotated_manifest}")
+                    os.remove (annotated_manifest)
             if (fs_op):
+                print ("Removing temporary example directory /tmp/examples/sentinel_cages")
                 rmtree ("/tmp/examples/sentinel_cages")
             
         except FileNotFoundError as e:
