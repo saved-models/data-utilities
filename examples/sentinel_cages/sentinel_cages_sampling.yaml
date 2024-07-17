@@ -1,6 +1,7 @@
 id: https://marine.gov.scot/metadata/saved/rap/sentinel_cages_sampling/
 name: sentinel_cages_sampling
-title: "Sentinel cages sampling information schema"
+title: Sentinel cages sampling information schema
+description: This is an example for the purposes of testing fisdat(1) and fisup(1)
 prefixes:
   linkml: https://w3id.org/linkml/
   saved:  https://marine.gov.scot/metadata/saved/schema/
