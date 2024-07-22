@@ -1,4 +1,4 @@
-from linkml.utils.schemaloader       import SchemaLoader
+#from linkml.utils.schemaloader       import SchemaLoader
 from linkml_runtime.dumpers          import RDFLibDumper, YAMLDumper
 from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
 from linkml_runtime.utils.schemaview import SchemaView
@@ -102,8 +102,8 @@ def append_job_manifest (data           : str
         return (False)
     
     logging.info ("Generating base job description")
-    schema_obj        = SchemaLoader (schema).schema
-    schema_properties = schema_components_helper (schema_obj)
+    #schema_obj        = SchemaLoader (schema).schema
+    #schema_properties = schema_components_helper (schema_obj)
     target_set_atomic = data_path.stem
 
     if (data_path.name != str(data_path)):
@@ -114,8 +114,8 @@ def append_job_manifest (data           : str
     logging.info ("Generating base table description")
     staging_table = TableDesc (
         atomic_name      = target_set_atomic
-      , title            = schema_properties ["title"]
-      , description      = schema_properties ["description"] # Partly for filling out a template, use even empty
+      #, title            = schema_properties ["title"]
+      #, description      = schema_properties ["description"] # Partly for filling out a template, use even empty
       , resource_path    = data_path.name
       , schema_path_yaml = schema_path.name
       , resource_hash    = data_hash

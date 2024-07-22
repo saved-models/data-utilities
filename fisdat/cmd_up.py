@@ -150,7 +150,7 @@ def coalesce_schema (schema_path_yaml : str
     '''
     Convert YAML schema to turtle equvialent
     '''
-    logging.debug (f"Called `coalesce_schema (schema_path_yaml = {schema_path_yaml}'")
+    logging.debug (f"Called `coalesce_schema (schema_path_yaml = {schema_path_yaml}, schema_path_ttl = {schema_path_ttl}'")
 
     (feasible, target_path_ttl) = convert_feasibility (input_path  = schema_path_yaml
                                                      , target_path = schema_path_ttl
@@ -173,6 +173,7 @@ def coalesce_schema (schema_path_yaml : str
             schema_output_ttl = codecs.open (target_path_ttl, "w", "utf-8")
             schema_output_ttl.write (schema_ttl_description)
             schema_output_ttl.close ()
+            print (f"Successfully dumped generated RDF to {target_path_ttl}")
  
             return (True, target_path_ttl)
         except yaml.scanner.ScannerError:
@@ -188,6 +189,10 @@ def coalesce_table (tab      : TableDesc
                   , force    : bool
                   , convert  : bool
                   , stem     : str) -> (bool, TableDesc):
+    '''
+    '''
+    logging.debug (f"Called `coalesce_table (tab = {tab}, fake_cwd = {fake_cwd}, force = {force}, convert = {convert}, stem = {stem})'")
+    
     table_uri      = tab.resource_path
     fake_table_uri = f"{fake_cwd}{table_uri}"
     extant_uri     = isfile (fake_table_uri)
@@ -204,10 +209,22 @@ def coalesce_table (tab      : TableDesc
                 print (f"{fake_table_uri} has changed, please revalidate with `fisdat'")
                 return (False, tab)
         if convert:
+            '''
+            Setting force=True always is a hack for now because without
+            setting this, if the schema is shared by multiple data
+            tables, then it fails for the second one. 
+            A robust fix for this will go back to the data model, because
+            the schema itself is a resource and this is the only way to
+            avoid conversion more than once.
+            In any case, it is useful to echo the target TTL path through
+            a function not unlike this one. Furthermore, there may be
+            more than one notion of feasibility, beyond 'does this path
+            exist' as we have now.
+            '''
             fake_path_yaml             = f"{fake_cwd}{tab.schema_path_yaml}"
             (schema_success, path_ttl) = coalesce_schema (schema_path_yaml = fake_path_yaml
                                                         , dry_run          = dry_run
-                                                        , force            = force
+                                                        , force            = True
                                                         , conversion_stem  = stem)
             if (schema_success):
                 tab.schema_path_ttl = path_ttl.name
@@ -332,6 +349,8 @@ def coalesce_manifest (manifest_path   : str
         copied_obj   = copy.deepcopy (manifest_obj)
         rough_tables = map (lambda t : coalesce_table(t, fake_cwd, dry_run, force, convert_schema, conversion_stem), copied_obj.tables)
         tables_signals, tables_results = zip(*rough_tables)
+        logging.debug (f"Table signals: {tables_signals}")
+        logging.debug (f"Table results: {tables_results}")
 
         if (all (tables_signals)):
             print ("Successfully converted all schemata from YAML to TTL")
