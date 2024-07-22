@@ -1,0 +1,78 @@
+atomic_name: RootManifest
+tables:
+- atomic_name: deployment_2011-10-26_2011-11-01_cage_10
+  title: Cage 10, season A11, deployment 1 (2011-10-26 - 2011-11-01)
+  resource_path: deployment_2011-10-26_2011-11-01_cage_10.csv
+  resource_hash: 5b75481628cfaf3206721491c906a95348f7abd32a9c70a82f57821add8169fb7abd174314a669bed9612183345a295f
+  schema_path_yaml: sentinel_cages_sampling.yaml
+
+- atomic_name: deployment_2011-10-26_2011-11-01_cage_8
+  title: Cage 8, season A11, deployment 1 (2011-10-26 - 2011-11-01)
+  resource_path: deployment_2011-10-26_2011-11-01_cage_8.csv
+  resource_hash: 0b93c10c8de980fe7213040096dcabb4f7c66efe03ea1f479007da6ea2800b0b2e226b854c6f1a0b22c742a9cae0ec99
+  schema_path_yaml: sentinel_cages_sampling.yaml
+
+- atomic_name: deployment_2011-10-26_2011-11-01_cage_9
+  title: Cage 9, season A11, deployment 1 (2011-10-26 - 2011-11-01)
+  resource_path: deployment_2011-10-26_2011-11-01_cage_9.csv
+  resource_hash: 89361535458427edda4c59e609553a897b3f1110f1c6d97c9bb43196715c3c48f8d0da1536429eb2b21a0d4f6bbd9f1e
+  schema_path_yaml: sentinel_cages_sampling.yaml
+
+- atomic_name: density
+  title: Simple test time/density description
+  resource_path: density.csv
+  resource_hash: 1974c2dbefaeaaa425a789142e405f7b8074bb96348b24003fe36bf4098e6b58e2227680bcf72634c4553b214f33acb4
+  schema_path_yaml: density.yaml
+
+
+jobs:
+- atomic_name: job_example_dep10
+  job_type: ignore
+  title: Empty job template
+  
+- atomic_name: job_dens_cage10_a11_dep1
+  job_type: density
+  title: Density job for cage 10, season A11, deployment 1
+  job_scope_collected:
+  - column: TOTAL
+    variable: saved:lice_af_total
+    table: deployment_2011-10-26_2011-11-01_cage_10
+  job_scope_modelled:
+  - column: time
+    variable: saved:time
+    table: density
+  - column: density
+    variable: saved:density
+    table: density
+    
+- atomic_name: job_dens_cage8_a11_dep1
+  job_type: density
+  title: Density job for cage 8, season A11, deployment 1
+  job_scope_collected:
+  - column: TOTAL
+    variable: saved:lice_af_total
+    table: deployment_2011-10-26_2011-11-01_cage_8
+  job_scope_modelled:
+  - column: time
+    variable: saved:time
+    table: density
+  - column: density
+    variable: saved:density
+    table: density
+
+- atomic_name: job_dens_cage9_a11_dep1
+  job_type: density
+  title: Density job for cage 9, season A11, deployment 1
+  job_scope_collected:
+  - column: TOTAL
+    variable: saved:lice_af_total
+    table: deployment_2011-10-26_2011-11-01_cage_9
+  job_scope_modelled:
+  - column: time
+    variable: saved:time
+    table: density
+  - column: density
+    variable: saved:density
+    table: density
+  
+local_version: 0.6+2.g2ef2625.dirty
