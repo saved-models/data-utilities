@@ -1,6 +1,6 @@
 id: https://marine.gov.scot/metadata/marinescot/cagedata/
 name: time_density_simple
-title: "placeholder time/density description"
+title: "Placeholder time/density description"
 prefixes:
   linkml: https://w3id.org/linkml/
   saved: https://marine.gov.scot/metadata/saved/schema/
