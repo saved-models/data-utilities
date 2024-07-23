@@ -61,7 +61,7 @@ def upload_files (args    : [str]
             if fname is not None:
                 fpath = path + "/" + fname
                 print (f"Would upload to gs://{args.bucket}/{fpath} ...")
-    return f"gs://{args.bucket}/{path}"
+    return (jobuuid, f"gs://{args.bucket}/{path}")
 
 def source () -> str:
     logging.debug ("Called `source()'")
@@ -401,6 +401,8 @@ def cli () -> None:
     """
     Command line interface
     """
+    tmploc = "https://rap.tardis.ac/saved"
+    
     print (f"This is fisup version {__version__}, commit {__commit__}")
     
     parser = argparse.ArgumentParser("fisup")
@@ -524,10 +526,11 @@ def cli () -> None:
                        , str (manifest_ttl)
                        , index] + resources + schemata_yaml + schemata_ttl
         
-        url = upload_files (args, staging_files, short_name, time_stamp, no_upload)
+        uuid, url = upload_files (args, staging_files, short_name, time_stamp, no_upload)
 
         if (no_upload):
             print(f"Would have uploaded your data/job set/bundle to {url}")
         else:
             print(f"Successfully uploaded your data/job set/bundle to {url}")
+            print(f"Result should, within the next 5-10 minutes, appear at {tmploc}/rap/{uuid}/")
 

@@ -65,8 +65,10 @@ def cagedist(filename, column, max_count):
     count_items   = raw_counts.items()
     total_lice    = sum([k*v for (k,v) in count_items])
     most_observed = max([k for (k,v) in count_items])
-    if (max_count < 10): ## otherwise hist() below fails
+    if (max_count < 10 and most_observed > 10): ## otherwise hist() below fails
         nominal_max = most_observed +1
+    elif (max_count < 10):
+        nominal_max = 11
     else:
         nominal_max = max_count +1
     probabilities = {k: v for (k, v) in zip(range(0, nominal_max), [0]*nominal_max)}
