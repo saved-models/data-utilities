@@ -17,7 +17,7 @@ NA_NONE = [" ", "", "#N/A", "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN"
          , "-NaN", "-nan", "1.#IND", "1.#QNAN", "<NA>", "N/A", "NA"
          , "NULL", "NaN", "None", "n/a", "nan", "null"]
 
-def derivative(k_inf, acc, density, volume):
+def derivative(k_inf, acc, density, volume, most_observed):
     """
     Return a function implementing the ODE version of the sea lice accumulation
     model. This ODE system generates the histogram as a function of time.
@@ -26,12 +26,12 @@ def derivative(k_inf, acc, density, volume):
     a `density`, a function of time, and the volume of the cage. Number of lice is
     computed as `density(t)*volume`.
     """
-    kn = np.array([k_inf] + [n*k_inf*acc for n in range(1,51)])
+    kn = np.array([k_inf] + [n*k_inf*acc for n in range(1,most_observed+1)])
     def ode(t, F):
         C = density(t) * volume
         dF0dt = -kn[0]*F[0]*C
-        dFndt = [kn[n-1]*F[n-1]*C - kn[n]*F[n]*C for n in range(1,50)]
-        df50dt = kn[49]*F[49]*C
+        dFndt = [kn[n-1]*F[n-1]*C - kn[n]*F[n]*C for n in range(1,most_observed)]
+        df50dt = kn[most_observed-1]*F[most_observed-1]*C
         return np.array([dF0dt] + dFndt + [df50dt])
     return ode
 
@@ -50,7 +50,7 @@ def cagedist(filename, column):
     Read the named column from the file and return a probability distribution of
     the sampled lice counts.
     """
-    count = {}
+    raw_counts = {}
     with open(filename) as fp:
         colno = None
         for row in csv.reader(fp):
@@ -60,13 +60,23 @@ def cagedist(filename, column):
             if row[colno] in NA_NONE:
                 continue
             total = int(row[colno])
-            count[total] = count.get(total, 0) + 1
+            raw_counts[total] = raw_counts.get(total, 0) + 1
 
-    hist = np.array([count.get(i, 0) for i in range(51)])
+    count_items   = raw_counts.items()
+    total_lice    = sum([k*v for (k,v) in count_items])
+    most_observed = max([k for (k,v) in count_items])
+    probabilities = {k: v for (k, v) in zip(range(0, most_observed), [0]*most_observed)}
+    all_counts    = {k: v for (k, v) in zip(range(0, most_observed), [0]*most_observed)}
+    for (freq, count) in count_items:
+        prob_count = count / total_lice
+        probabilities[freq] = prob_count
+        all_counts[freq]    = count
+            
+    hist = np.array([raw_counts.get(i, 0) for i in range(most_observed)])
     hist = downsample(hist, 10)
-    return hist/hist.sum()
+    return (most_observed, all_counts, probabilities, hist/hist.sum())
 
-def objective(y0, t0, t1, density, volume, weight, p_measured):
+def objective(y0, t0, t1, density, volume, weight, p_measured, most_observed):
     """
     Return an objective function to be minimised. Requires the initial
     conditions, `y0`, `t0`, and stopping time, `t1`. Also requires parameters, a
@@ -80,7 +90,7 @@ def objective(y0, t0, t1, density, volume, weight, p_measured):
             return np.inf
         params = { "k_inf": x[0], "acc": x[1] }
 
-        ode = derivative(params["k_inf"], params["acc"], density, volume)
+        ode = derivative(params["k_inf"], params["acc"], density, volume, most_observed)
         solver = solve(ode)
         solver.set_initial_value(y0, t0)
         y = solver.integrate(t1)
@@ -150,21 +160,23 @@ def cli():
     parser.add_argument("densitycolumn", help="Column in density data to use for density")
     args = parser.parse_args()
 
-    y0 = np.array([100] + [0 for _ in range(1,51)])
+    result = { "obs": {}, "ref": {}, "test": {} }
+    most_observed, observed_counts, observed_probabilities, p_measured = cagedist(args.cagedata, args.cagecolumn)
+    
+    result["obs"]["counts"] = observed_counts
+    result["obs"]["probs"]  = observed_probabilities
+    
+    y0 = np.array([100] + [0 for _ in range(1,most_observed+1)])
     t0 = 0
     t1 = args.limit
 
     if args.weight < 0 or args.weight > 1:
         raise ValueError(f"bad value for weight ({args.weight}), should be between [0,1]")
-
-    result = { "ref": {}, "test": {} }
-
-    p_measured = cagedist(args.cagedata, args.cagecolumn)
-
+    
     density_const = lambda t: 0.1
     volume = 10
 
-    obj = objective(y0, t0, t1, density_const, volume, args.weight, p_measured)
+    obj = objective(y0, t0, t1, density_const, volume, args.weight, p_measured, most_observed)
     x0 = [args.k_inf, args.acc]
     bounds = Bounds([1e-4,0.25], [1e-4,0.25])
     res = minimize(obj, x0, method='nelder-mead',
@@ -174,14 +186,14 @@ def cli():
     result["ref"]["acc"]   = res.x[1]
     result["ref"]["dist"]  = res.fun
 
-    ode = derivative(res.x[0], res.x[1], density_const, volume)
+    ode = derivative(res.x[0], res.x[1], density_const, volume, most_observed)
     solver = solve(ode)
     solver.set_initial_value(y0, t0)
     y = solver.integrate(t1)
     result["ref"]["totals"] = { n: c for n, c in enumerate(y) if c > 0 }
 
     density_csv = density(args.densitydata, args.densitytime, args.densitycolumn, args.format)
-    obj = objective(y0, t0, t1, density_csv, volume, args.weight, p_measured)
+    obj = objective(y0, t0, t1, density_csv, volume, args.weight, p_measured, most_observed)
     x0 = [args.k_inf, args.acc]
     bounds = Bounds([1e-4,0.25], [1e-4,0.25])
     res = minimize(obj, x0, method='nelder-mead',
@@ -191,7 +203,7 @@ def cli():
     result["test"]["acc"]   = res.x[1]
     result["test"]["dist"]  = res.fun
 
-    ode = derivative(res.x[0], res.x[1], density_csv, volume)
+    ode = derivative(res.x[0], res.x[1], density_csv, volume, most_observed)
     solver = solve(ode)
     solver.set_initial_value(y0, t0)
     y = solver.integrate(t1)
