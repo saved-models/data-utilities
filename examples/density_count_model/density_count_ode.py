@@ -45,7 +45,7 @@ def downsample(hist, n):
     new  = [hist[0]] + [hist[1+size*i:1+size*(i+1)].sum() for i in range(n)]
     return np.array(new)
 
-def cagedist(filename, column):
+def cagedist(filename, column, max_count):
     """
     Read the named column from the file and return a probability distribution of
     the sampled lice counts.
@@ -65,16 +65,21 @@ def cagedist(filename, column):
     count_items   = raw_counts.items()
     total_lice    = sum([k*v for (k,v) in count_items])
     most_observed = max([k for (k,v) in count_items])
-    probabilities = {k: v for (k, v) in zip(range(0, most_observed), [0]*most_observed)}
-    all_counts    = {k: v for (k, v) in zip(range(0, most_observed), [0]*most_observed)}
+    if (max_count < 10): ## otherwise hist() below fails
+        nominal_max = most_observed +1
+    else:
+        nominal_max = max_count +1
+    probabilities = {k: v for (k, v) in zip(range(0, nominal_max), [0]*nominal_max)}
+    all_counts    = {k: v for (k, v) in zip(range(0, nominal_max), [0]*nominal_max)}
     for (freq, count) in count_items:
-        prob_count = count / total_lice
-        probabilities[freq] = prob_count
-        all_counts[freq]    = count
-            
-    hist = np.array([raw_counts.get(i, 0) for i in range(most_observed)])
+        if(freq < nominal_max):
+            prob_count = count / total_lice
+            probabilities[freq] = prob_count
+            all_counts[freq]    = count
+    hist = np.array([raw_counts.get(i, 0) for i in range(nominal_max)])
     hist = downsample(hist, 10)
-    return (most_observed, all_counts, probabilities, hist/hist.sum())
+    res = (nominal_max-1, all_counts, probabilities, hist/hist.sum())
+    return res
 
 def objective(y0, t0, t1, density, volume, weight, p_measured, most_observed):
     """
@@ -101,8 +106,8 @@ def objective(y0, t0, t1, density, volume, weight, p_measured, most_observed):
         p_simulated_zero = p_simulated[0]
         p_simulated_renorm = p_simulated[1:]/p_simulated[1:].sum()
 
-        dz = weight*wasserstein_distance([p_measured_zero, 1.0 - p_measured_zero],
-                                              [p_simulated_zero, 1.0 - p_simulated_zero])
+        dz = weight*wasserstein_distance([p_measured_zero , 1.0 - p_measured_zero],
+                                         [p_simulated_zero, 1.0 - p_simulated_zero])
         dc = (1-weight)*wasserstein_distance(p_measured_renorm, p_simulated_renorm)
 
         return dz + dc
@@ -153,6 +158,7 @@ def cli():
     parser.add_argument("--k_inf", type=float, default=0.002, help="Infection rate")
     parser.add_argument("--acc", type=float, default=1, help="Increase in infection rate per louse")
     parser.add_argument("--weight", type=float, default=0.5, help="Relative weight of zeros")
+    parser.add_argument("--max-count", type=int, default=-1, help="Maximum count")
     parser.add_argument("cagedata", help="Cage data file")
     parser.add_argument("cagecolumn", help="Column in cage data file to use for counts")
     parser.add_argument("densitydata", help="Density data file")
@@ -161,7 +167,7 @@ def cli():
     args = parser.parse_args()
 
     result = { "obs": {}, "ref": {}, "test": {} }
-    most_observed, observed_counts, observed_probabilities, p_measured = cagedist(args.cagedata, args.cagecolumn)
+    most_observed, observed_counts, observed_probabilities, p_measured = cagedist(args.cagedata, args.cagecolumn, args.max_count)
     
     result["obs"]["counts"] = observed_counts
     result["obs"]["probs"]  = observed_probabilities
@@ -190,8 +196,8 @@ def cli():
     solver = solve(ode)
     solver.set_initial_value(y0, t0)
     y = solver.integrate(t1)
-    result["ref"]["totals"] = { n: c for n, c in enumerate(y) if c > 0 }
-
+    result["ref"]["totals"] = { n: c/100 for n, c in enumerate(y) if c > 0 }
+    
     density_csv = density(args.densitydata, args.densitytime, args.densitycolumn, args.format)
     obj = objective(y0, t0, t1, density_csv, volume, args.weight, p_measured, most_observed)
     x0 = [args.k_inf, args.acc]
@@ -207,7 +213,7 @@ def cli():
     solver = solve(ode)
     solver.set_initial_value(y0, t0)
     y = solver.integrate(t1)
-    result["test"]["totals"] = { n: c for n, c in enumerate(y) if c > 0 }
+    result["test"]["totals"] = { n: c/100 for n, c in enumerate(y) if c > 0 }
 
     print(json.dumps(result, indent=4))
 
