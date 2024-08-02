@@ -1,5 +1,4 @@
 [build-system]
-#requires      = ["setuptools", "setuptools-scm", "versioneer[toml]==0.29"]
 requires      = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
@@ -24,23 +23,12 @@ dependencies = [
         "linkml-runtime==1.7.5",
         "mypy"
 ]
-dynamic = ["version"]
+version  = "0.7"
 
 [project.scripts]
 fisdat = "fisdat.cmd_dat:cli"
 fisjob = "fisdat.cmd_job:cli"
 fisup  = "fisdat.cmd_up:cli"
 
-[tool.setuptools.dynamic]
-version = 0.7
-
 [tool.setuptools]
 packages = ["fisdat"]
-
-[tool.versioneer]
-VCS                = "git"
-style              = "pep440"
-versionfile_source = "fisdat/_version.py"
-versionfile_build  = "fisdat/_version.py"
-tag_prefix         = ""
-parentdir_prefix   = "fisdat"
