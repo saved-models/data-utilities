@@ -2,6 +2,9 @@
 
 ## Pre-requisites / caveats:
 
+The key requirement is Python version 3.8 or later, as the library we use
+ for writing data schema files and editing job manifests requires this.
+
 A previous version of this document had a git submodule comprising our
 data model, based on LinkML. There is no longer an external dependency
 on this, nor any other git submodules, and the directory which it 
