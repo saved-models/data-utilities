@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="fisdat",
-    version="0.2",
+    version="0.7",
     description="Data schema checking and uploading",
     author=["William Waites", "Meadhbh Moriarty", "Duncan Guthrie"],
     author_email="william.waites@strath.ac.uk",
@@ -38,6 +38,7 @@ setup(
         "console_scripts": [
             "fisdat = fisdat.cmd_dat:cli",
             "fisup = fisdat.cmd_up:cli",
+            "fisjob = fisdat.cmd_job:cli"
         ],
     },
 )
