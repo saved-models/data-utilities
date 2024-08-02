@@ -32,7 +32,7 @@ fisjob = "fisdat.cmd_job:cli"
 fisup  = "fisdat.cmd_up:cli"
 
 [tool.setuptools.dynamic]
-version = {attr = "fisdat.__version__"}
+version = 0.7
 
 [tool.setuptools]
 packages = ["fisdat"]
