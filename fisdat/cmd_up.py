@@ -22,7 +22,7 @@ from linkml_runtime.dumpers          import RDFLibDumper, YAMLDumper
 from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
 from linkml_runtime.utils.schemaview import SchemaView
 
-from fisdat            import __version__, __commit__
+#from fisdat            import __version__, __commit__
 from fisdat.utils      import extension_helper, prefix_helper, job_table
 from fisdat.data_model import TableDesc, ManifestDesc
 
@@ -105,7 +105,8 @@ def prep_index (manifest_path_yaml : str
 def convert_feasibility (input_path  : str
                        , target_ext  : str
                        , target_path : Optional[str] = None
-                       , force       : bool = True) -> (bool, PurePath):
+                       , force       : bool = True
+                       , quiet       : bool = False) -> (bool, PurePath):
     '''
     Helper function which returns whether a given filesystem operation is
     feasible.
@@ -130,13 +131,16 @@ def convert_feasibility (input_path  : str
     #    print (f"Target extension {target_ext} is same as input, won't do anything")
     #    stage_write = (False, output_path_pure)
     if (not isfile (output_path_pure)):
-        print (f"Target file {output_path_pure} doesn't exist, so overwrite")
+        if not quiet:
+            print (f"Target file {output_path_pure} doesn't exist, so overwrite")
         stage_write = (True, output_path_pure)
     elif (isfile (output_path_pure) and force):
-        print (f"Target file {output_path_pure} exists, and force-overwrite (`--force' option) is set, so overwrite")
+        if not quiet:
+            print (f"Target file {output_path_pure} exists, and force-overwrite (`--force' option) is set, so overwrite")
         stage_write = (True, output_path_pure)
     else: #elif (isfile (target_file) and not force):
-        print (f"Target file {output_path_pure} exists, but force-overwrite (`--force' option) is not set, so don't overwrite!")
+        if not quiet:
+            print (f"Target file {output_path_pure} exists, but force-overwrite (`--force' option) is not set, so don't overwrite!")
         stage_write = (False, output_path_pure)
 
     return (stage_write)
@@ -144,6 +148,7 @@ def convert_feasibility (input_path  : str
 def coalesce_schema (schema_path_yaml : str
                    , dry_run          : bool
                    , force            : bool
+                   , quiet            : bool          = False
                    , schema_path_ttl  : Optional[str] = None
                    , conversion_stem  : str           = "converted"
     ) -> (bool, PurePath):
@@ -155,7 +160,7 @@ def coalesce_schema (schema_path_yaml : str
     (feasible, target_path_ttl) = convert_feasibility (input_path  = schema_path_yaml
                                                      , target_path = schema_path_ttl
                                                      , target_ext  = f"{conversion_stem}.ttl"
-                                                     , force       = force)
+                                                     , force       = force, quiet = quiet)
     if (dry_run and feasible):
         print (f"Would have converted schema from YAML {schema_path_yaml} to TTL {target_path_ttl}")
         return (True, target_path_ttl)
@@ -225,6 +230,7 @@ def coalesce_table (tab      : TableDesc
             (schema_success, path_ttl) = coalesce_schema (schema_path_yaml = fake_path_yaml
                                                         , dry_run          = dry_run
                                                         , force            = True
+                                                        , quiet            = True
                                                         , conversion_stem  = stem)
             if (schema_success):
                 tab.schema_path_ttl = path_ttl.name
@@ -403,7 +409,7 @@ def cli () -> None:
     """
     tmploc = "https://rap.tardis.ac/saved"
     
-    print (f"This is fisup version {__version__}, commit {__commit__}")
+    #print (f"This is fisup version {__version__}, commit {__commit__}")
     
     parser = argparse.ArgumentParser("fisup")
     verbgr = parser.add_mutually_exclusive_group (required = False)

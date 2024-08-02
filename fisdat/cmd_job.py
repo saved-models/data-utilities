@@ -7,7 +7,7 @@ from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
 from linkml_runtime.dumpers          import YAMLDumper  , RDFLibDumper
 from linkml_runtime.utils.schemaview import SchemaView
 
-from fisdat            import __version__, __commit__
+#from fisdat            import __version__, __commit__
 from fisdat.utils      import validation_helper
 from fisdat.data_model import ManifestDesc
 
@@ -86,7 +86,7 @@ def template_to_manifest (template       : str
                  , prefix_map = prefixes)
 
 def cli () -> None:
-    print (f"This is fisjob version {__version__}, commit {__commit__}")
+    #print (f"This is fisjob version {__version__}, commit {__commit__}")
 
     op_to_yaml   = ["manifest-to-template", "to-template", "from-manifest"]
     op_to_turtle = ["template-to-manifest", "to-manifest", "from-template"]
@@ -107,15 +107,12 @@ def cli () -> None:
     parser.add_argument ("--data-model-uri"
                        , help     = "Data model YAML specification URI"
                        , default  = "https://marine.gov.scot/metadata/saved/schema/meta.yaml")
-    parser.add_argument ("--force", "-f"
+    parser.add_argument ("--force", "-F"
                        , help = "If output file exists, overwrite it"
                        , action = "store_true")
     parser.add_argument ("--base-prefix"
                        , help    = "@base prefix from which job manifest, job results, data and descriptive statistics may be served."
                        , default = "https://marine.gov.scot/metadata/saved/rap/")
-    parser.add_argument ("--saved-prefix"
-                       , help     = "`saved' data model schema prefix"
-                       , default  = "https://marine.gov.scot/metadata/saved/schema/")
     verbgr.add_argument ("-v", "--verbose"
                        , help     = "Show more information about current running state"
                        , required = False
@@ -157,7 +154,8 @@ def cli () -> None:
             print (f"Output RDF/TTL manifest {args.output} already exists. Overwrite by passing the -f flag.")
         else:
             prefixes = { "_base": args.base_prefix
-                       , "saved": args.saved_prefix}
+                       , "rap"  : "https://marine.gov.scot/metadata/saved/rap/" 
+                       , "saved": "https://marine.gov.scot/metadata/saved/schema/"}
 
             res_bool = template_to_manifest (template       = args.input
                                            , manifest       = args.output

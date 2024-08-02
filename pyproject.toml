@@ -1,5 +1,6 @@
 [build-system]
-requires      = ["setuptools", "setuptools-scm", "versioneer[toml]==0.29"]
+#requires      = ["setuptools", "setuptools-scm", "versioneer[toml]==0.29"]
+requires      = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -21,8 +22,7 @@ dependencies = [
         "google-cloud-storage",
         "linkml==1.7.10",
         "linkml-runtime==1.7.5",
-        "mypy",
-        "versioneer"
+        "mypy"
 ]
 dynamic = ["version"]
 

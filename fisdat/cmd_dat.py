@@ -13,7 +13,7 @@ import rdflib.plugins.parsers.notation3
 import urllib.error
 import yaml.scanner
 
-from fisdat            import __version__, __commit__
+#from fisdat            import __version__, __commit__
 from fisdat.data_model import JobDesc, TableDesc, ManifestDesc
 from fisdat.ns         import CSVW
 from fisdat.utils      import extension_helper, job_table, schema_components_helper, validation_helper
@@ -281,7 +281,7 @@ def manifest_wrapper (data           : str
         return (prereq_check)
 
 def cli () -> None:
-    print (f"This is fisdat version {__version__}, commit {__commit__}")
+    #print (f"This is fisdat version {__version__}, commit {__commit__}")
     
     parser = argparse.ArgumentParser ("fisdat")
     verbgr = parser.add_mutually_exclusive_group (required = False)
