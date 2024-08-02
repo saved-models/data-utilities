@@ -34,6 +34,7 @@ setup(
         "linkml-runtime==1.7.5",
         "mypy"
     ],
+    python_requires='>3.8.1', # linkml / linkml-runtime
     entry_points={
         "console_scripts": [
             "fisdat = fisdat.cmd_dat:cli",
