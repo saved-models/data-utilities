@@ -157,6 +157,8 @@ def cli():
     parser.add_argument("-v", "--verbose", default=False, action="store_true", help="Verbose output")
     parser.add_argument("-l", "--limit", type=int, default=168, help="Simulation time (hours)")
     parser.add_argument("-f", "--format", default=None, help="Time format for density data (see strptime)")
+    parser.add_argument("-c", "--csv", default=False, action="store_true", help="CSV output")
+    parser.add_argument("-s", "--delimiter", default="\t", help="Delimiter for CSV/TSV output (default TSV)")
     parser.add_argument("--k_inf", type=float, default=0.002, help="Infection rate")
     parser.add_argument("--acc", type=float, default=1, help="Increase in infection rate per louse")
     parser.add_argument("--weight", type=float, default=0.5, help="Relative weight of zeros")
@@ -217,7 +219,26 @@ def cli():
     y = solver.integrate(t1)
     result["test"]["totals"] = { n: c/100 for n, c in enumerate(y) if c > 0 }
 
-    print(json.dumps(result, indent=4))
+    if args.csv:
+        fields = ["count", "ref", "test"]
+        writer = csv.DictWriter(sys.stdout, delimiter=args.delimiter, fieldnames = fields)
+        writer.writerow({k:k for k in fields})
+        combined = [{ "count": c,
+                      "ref": result["ref"]["totals"][c],
+                      "test": result["test"]["totals"][c] }
+                    for c in result["ref"]["totals"]]
+        [writer.writerow(row) for row in combined]
+
+        meta = ["series", "k_inf", "acc", "dist"]
+        writer = csv.DictWriter(sys.stderr, delimiter=args.delimiter, fieldnames = meta)
+        writer.writerow({k:k for k in meta})
+        for series in ["ref", "test"]:
+            writer.writerow({ "series": series,
+                              "k_inf": result[series]["k_inf"],
+                              "acc": result[series]["acc"],
+                              "dist": result[series]["dist"] })
+    else:
+        print(json.dumps(result, indent=4))
 
 if __name__ == '__main__':
     cli()
