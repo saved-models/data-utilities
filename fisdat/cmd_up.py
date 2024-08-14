@@ -22,9 +22,11 @@ from linkml_runtime.dumpers          import RDFLibDumper, YAMLDumper
 from linkml_runtime.loaders          import RDFLibLoader, YAMLLoader
 from linkml_runtime.utils.schemaview import SchemaView
 
-#from fisdat            import __version__, __commit__
 from fisdat.utils      import extension_helper, prefix_helper, job_table
 from fisdat.data_model import TableDesc, ManifestDesc
+
+import pkg_resources
+__version__ = pkg_resources.require("fisdat")[0].version
 
 ## data read/write buffer size, 1MB
 BUFSIZ=1048576
@@ -409,7 +411,7 @@ def cli () -> None:
     """
     tmploc = "https://rap.tardis.ac/saved"
     
-    #print (f"This is fisup version {__version__}, commit {__commit__}")
+    print (f"This is fisup version {__version__}")
     
     parser = argparse.ArgumentParser("fisup")
     verbgr = parser.add_mutually_exclusive_group (required = False)

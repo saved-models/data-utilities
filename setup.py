@@ -32,7 +32,8 @@ setup(
         "google-cloud-storage",
         "linkml==1.7.10",
         "linkml-runtime==1.7.5",
-        "mypy"
+        "mypy",
+        "setuptools"
     ],
     python_requires='>3.8.1', # linkml / linkml-runtime
     entry_points={

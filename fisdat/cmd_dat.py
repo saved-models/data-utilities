@@ -13,10 +13,13 @@ import rdflib.plugins.parsers.notation3
 import urllib.error
 import yaml.scanner
 
-#from fisdat            import __version__, __commit__
+import pkg_resources  # part of setuptools
 from fisdat.data_model import JobDesc, TableDesc, ManifestDesc
 from fisdat.ns         import CSVW
 from fisdat.utils      import extension_helper, job_table, schema_components_helper, validation_helper
+
+import pkg_resources
+__version__ = pkg_resources.require("fisdat")[0].version
 
 def dump_wrapper (py_obj
                 , data_model_view : SchemaView
@@ -281,7 +284,7 @@ def manifest_wrapper (data           : str
         return (prereq_check)
 
 def cli () -> None:
-    #print (f"This is fisdat version {__version__}, commit {__commit__}")
+    print (f"This is fisdat version {__version__}")
     
     parser = argparse.ArgumentParser ("fisdat")
     verbgr = parser.add_mutually_exclusive_group (required = False)

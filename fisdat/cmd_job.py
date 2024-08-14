@@ -11,6 +11,9 @@ from linkml_runtime.utils.schemaview import SchemaView
 from fisdat.utils      import validation_helper
 from fisdat.data_model import ManifestDesc
 
+import pkg_resources
+__version__ = pkg_resources.require("fisdat")[0].version
+
 '''
 Column descriptions have three elements:
 
@@ -86,7 +89,7 @@ def template_to_manifest (template       : str
                  , prefix_map = prefixes)
 
 def cli () -> None:
-    #print (f"This is fisjob version {__version__}, commit {__commit__}")
+    print (f"This is fisjob version {__version__}")
 
     op_to_yaml   = ["manifest-to-template", "to-template", "from-manifest"]
     op_to_turtle = ["template-to-manifest", "to-manifest", "from-template"]
